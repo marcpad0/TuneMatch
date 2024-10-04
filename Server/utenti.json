@@ -1,0 +1,12 @@
+[
+    {
+        "username": "admin",
+        "password": "admin",
+        "loggedSpotify": false
+    },
+    {
+        "username": "user",
+        "password": "user",
+        "loggedSpotify": true
+    }
+]
