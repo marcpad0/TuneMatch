@@ -86,6 +86,35 @@ app.delete('/delete', (req, res) => {
     });
 });
 
+app.put('/update', (req, res) => {
+    fs.readFile('utenti.json', 'utf-8', (error, data) => {
+        if (error) {
+            res.status(500).send('Error reading user data');
+            return;
+        }
+
+        let users = JSON.parse(data);
+        const userIndex = users.findIndex(user => user.username === req.body.username);
+
+        if (userIndex === -1) {
+            res.status(404).send('User not found');
+            return;
+        }
+
+        users[userIndex].loggedSpotify = req.body.loggedSpotify;
+
+        fs.writeFile('utenti.json', JSON.stringify(users), (error) => {
+            if (error) {
+                res.status(500).send('Error writing user data');
+                return;
+            }
+
+            res.status(200).send('User updated');
+        });
+    });
+});
+
+
 app.listen(3000, () => {
     console.log('Server is running on port 3000');
 });
