@@ -1,5 +1,7 @@
 # TuneMatch
 
+Un’app che ti connette con persone in base ai tuoi gusti musicali, utilizzando l'intelligenza artificiale. Analizza le tue canzoni preferite per creare abbinamenti con utenti simili. Oltre a trovare nuove connessioni, l’app ti suggerisce brani e artisti in linea con i tuoi gusti e quelli delle persone con cui vieni abbinato, migliorando l’esperienza musicale e sociale.
+
 Login
 Input:
 {
