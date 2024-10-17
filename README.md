@@ -91,3 +91,6 @@ Raccomandazione Musicale
 
 Deve utilizzare algoritmi per suggerire brani e artisti in base alle preferenze espresse dagli utenti e al loro comportamento di ascolto.
 
+![YUML](http://yuml.me/diagram/scruffy/usecase/)
+
+
