@@ -91,6 +91,6 @@ Raccomandazione Musicale
 
 Deve utilizzare algoritmi per suggerire brani e artisti in base alle preferenze espresse dagli utenti e al loro comportamento di ascolto.
 
-![YUML](fa562280.jpg)
+![YUML](aa67cf3b.jpg)
 
 
