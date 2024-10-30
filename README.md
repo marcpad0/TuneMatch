@@ -35,6 +35,23 @@ Molte persone non hanno amici con gusti musicali simili o hanno difficoltà a tr
 * Input: `{ "Id": "787fdsgs37t" }`
 * Output: `{ "like": [ "all stars" ] }`
 
+## Requisiti
+Connessione all'Account Spotify
+
+* Permetti agli utenti di collegare il proprio account Spotify per accedere facilmente alla loro libreria musicale e alle playlist.
+
+Interazione tramite Messaggi e Profilo
+
+* Consenti agli utenti di relazionarsi tra loro attraverso messaggi diretti e la creazione di profili personalizzati, dove possono condividere i propri gusti musicali e scoprire nuovi amici con interessi simili.
+
+Classifica dei Brani Preferiti
+
+* Implementa un sistema di classificazione dei brani preferiti basato su ""like"" e sul genere musicale. Gli utenti possono esprimere le loro preferenze e ricevere raccomandazioni personalizzate in base ai loro ascolti.
+
+Login/Registrazione
+
+* Rendi il processo di login e registrazione semplice e intuitivo. Offri opzioni di accesso tramite email, social media e, naturalmente, Spotify, per facilitare l'ingresso nell'app.
+
 ## Requisiti Funzionali
 
 ### 1. Connessione all'Account Spotify
@@ -81,5 +98,7 @@ Deve permettere interazioni sociali tra gli utenti, inclusa la creazione di reti
 
 ### 3. Raccomandazione Musicale
 Deve utilizzare algoritmi per suggerire brani e artisti in base alle preferenze espresse dagli utenti e al loro comportamento di ascolto.
+
+## Casi d'uso
 
 ![YUML](aa67cf3b.jpg)
