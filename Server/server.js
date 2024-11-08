@@ -1,8 +1,6 @@
 // server.js
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
-const { spawn } = require('child_process'); 
-const path = require('path');
 const cors = require('cors'); 
 const app = express();
 const port = 3000;
@@ -10,6 +8,7 @@ const port = 3000;
 // Middleware
 app.use(express.json());
 app.use(cors());
+
 
 // Connessione al database SQLite
 let db = new sqlite3.Database('./database.db', (err) => {
@@ -253,30 +252,7 @@ process.on('SIGINT', () => {
     });
 });
 
-// Avvia il progetto Vue
-const startVueProject = () => {
-    const vueProjectPath = path.join(__dirname, '../sites'); // Adjust the path as needed
-    const vueProcess = spawn('npm', ['run', 'serve'], {
-        cwd: vueProjectPath,
-        stdio: 'inherit', 
-        shell: true 
-    });
-
-    vueProcess.on('error', (err) => {
-        console.error('Failed to start Vue process:', err);
-    });
-
-    vueProcess.on('close', (code) => {
-        if (code !== 0) {
-            console.error(`Vue process exited with code ${code}`);
-        } else {
-            console.log('Vue process exited successfully.');
-        }
-    });
-};
-
 // Avvia il server
 app.listen(port, () => {
     console.log(`Server in esecuzione su http://localhost:${port}`);
-    startVueProject()
 });
