@@ -96,9 +96,6 @@ Deve supportare l'integrazione con il servizio di streaming musicale di Spotify,
 ### 2. Social Networking
 Deve permettere interazioni sociali tra gli utenti, inclusa la creazione di reti e connessioni basate su interessi musicali comuni.
 
-### 3. Raccomandazione Musicale
-Deve utilizzare algoritmi per suggerire brani e artisti in base alle preferenze espresse dagli utenti e al loro comportamento di ascolto.
-
 ## Casi d'uso
 
 ![YUML](aa67cf3b.jpg)
