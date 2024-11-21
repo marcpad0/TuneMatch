@@ -20,6 +20,7 @@ Molte persone non hanno amici con gusti musicali simili o hanno difficoltà a tr
 * GIT
 * VUE
 * NODEJS
+* WEBSOCKET
 
 ### Esempi di API
 
