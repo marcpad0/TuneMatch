@@ -114,6 +114,31 @@
         </table>
       </div>
 
+      <!-- Sezione Preferiti -->
+      <div class="favorite-tracks-section">
+        <h3 class="subtitle">Brani Preferiti</h3>
+        <div class="favorites-grid">
+          <div
+            v-for="track in favorites"
+            :key="track.id"
+            class="favorite-track-card"
+            @click="openSpotifyTrack(track)"
+          >
+            <img
+              v-if="track.album && track.album.images && track.album.images[0]"
+              :src="track.album.images[0].url"
+              alt="Album Art"
+              class="album-art"
+            />
+            <div class="track-info">
+              <h4>{{ track.name }}</h4>
+              <p><strong>Artista:</strong> {{ getArtistNames(track.artists) }}</p>
+              <p><strong>Album:</strong> {{ track.album.name }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Modal di Modifica Utente -->
       <div v-if="mostraModaleModifica" class="modal">
         <div class="modal-content">
@@ -190,6 +215,8 @@ export default {
         Posizione: "",
         DataNascita: "",
       },
+      favorites: [], // Nuova proprietà per i brani preferiti
+      userId: null, // Aggiunto per garantire che userId sia definito
     };
   },
   methods: {
@@ -319,6 +346,7 @@ export default {
         this.$router.push("/");
       } catch (error) {
         console.error('Logout error:', error);
+        alert("Errore durante il logout.");
       }
     },
     // Applica i filtri
@@ -342,19 +370,40 @@ export default {
       this.utentiFiltrati = this.utenti;
     },
 
+    // Recupera i brani preferiti
     favorite() {
       axios
         .get("http://37.27.206.153:3000/favorites", {
           withCredentials: true, // Include cookies
         })
         .then((response) => {
-          alert("Top Tracks:", response.data);
+          console.log("Top Tracks:", response.data);
+          // Salva i brani preferiti nella proprietà favorites
+          this.favorites = response.data;
+          console.log("Favorites:", this.favorites);
         })
         .catch((error) => {
-          alert("Error fetching favorites:", error);
+          console.error("Errore nel recupero dei brani preferiti:", error);
+          alert("Errore nel recupero dei brani preferiti.");
         });
     },
 
+    // Apre il brano su Spotify
+    openSpotifyTrack(track) {
+      if (track && track.external_urls && track.external_urls.spotify) {
+        window.open(track.external_urls.spotify, "_blank");
+      } else {
+        alert("Link Spotify non disponibile per questo brano.");
+      }
+    },
+
+    // Ottiene i nomi degli artisti concatenati
+    getArtistNames(artists) {
+      if (!artists || artists.length === 0) return "Artista sconosciuto";
+      return artists.map(artist => artist.name).join(", ");
+    },
+
+    // Recupera i dati dell'utente
     async getUserData() {
       try {
         const response = await axios.get('http://37.27.206.153:3000/auth/me', {
@@ -362,6 +411,7 @@ export default {
         });
         this.userData = response.data;
       } catch (error) {
+        console.error("Errore nel recupero dei dati utente:", error);
         this.$router.push("/");
       }
     },
@@ -533,6 +583,57 @@ export default {
   font-size: 15px;
 }
 
+/* Sezione Preferiti */
+.favorite-tracks-section {
+  margin-bottom: 40px;
+}
+
+.favorite-tracks-section .subtitle {
+  margin-bottom: 20px;
+}
+
+.favorites-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 30px;
+}
+
+.favorite-track-card {
+  background-color: #fdfdfd;
+  border: 1px solid #e0e0e0;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.favorite-track-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.album-art {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  margin-bottom: 15px;
+}
+
+.track-info h4 {
+  margin: 10px 0 5px;
+  font-size: 18px;
+}
+
+.track-info p {
+  margin: 5px 0;
+  font-size: 14px;
+}
+
 /* Stile del Modal */
 .modal {
   position: fixed;
@@ -701,6 +802,27 @@ export default {
 
   .input-group input {
     padding: 12px 16px; /* Padding aumentato per i campi di input */
+  }
+
+  /* Regola la sezione dei brani preferiti su mobile */
+  .favorite-tracks-section {
+    margin-bottom: 20px;
+  }
+
+  .favorite-track-card {
+    padding: 15px;
+  }
+
+  .album-art {
+    margin-bottom: 10px;
+  }
+
+  .track-info h4 {
+    font-size: 16px;
+  }
+
+  .track-info p {
+    font-size: 13px;
   }
 }
 </style>
