@@ -41,7 +41,6 @@
         </form>
       </div>
 
-      
       <!-- Card Utenti Mobile -->
       <div class="user-cards-mobile">
         <div
@@ -69,7 +68,6 @@
             </div>
           </div>
           <div class="user-card-content">
-            <p v-if="èAdmin"><strong>ID:</strong> {{ utente.id }}</p>
             <p><strong>Email Spotify:</strong> {{ utente.emailSpotify }}</p>
             <p><strong>Posizione:</strong> {{ utente.Posizione }}</p>
             <p><strong>Data di Nascita:</strong> {{ utente.DataNascita }}</p>
@@ -82,23 +80,19 @@
         <table class="user-table">
           <thead>
             <tr>
-              <th v-if="èAdmin">ID</th>
               <th>Username</th>
               <th>Email Spotify</th>
               <th>Posizione</th>
               <th>Data di Nascita</th>
-              <th v-if="èAdmin">È Admin</th>
               <th>Azioni</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="utente in utentiFiltrati" :key="utente.id">
-              <td v-if="èAdmin">{{ utente.id }}</td>
               <td>{{ utente.Username }}</td>
               <td>{{ utente.emailSpotify }}</td>
               <td>{{ utente.Posizione }}</td>
               <td>{{ utente.DataNascita }}</td>
-              <td v-if="èAdmin">{{ utente.isAdmin ? "Sì" : "No" }}</td>
               <td>
                 <button
                   v-if="puòModificare(utente)"
@@ -171,17 +165,6 @@
                   class="cute-input"
                 />
               </div>
-              <div v-if="èAdmin" class="input-group checkbox-group">
-                <label for="editIsAdmin">
-                  <input
-                    id="editIsAdmin"
-                    type="checkbox"
-                    v-model="utenteModificabile.isAdmin"
-                    :disabled="!èAdmin"
-                  />
-                  È Admin
-                </label>
-              </div>
             </div>
             <button type="submit" class="modal-button">Salva Modifiche</button>
           </form>
@@ -200,8 +183,7 @@ export default {
     return {
       utenti: [],
       utentiFiltrati: [],
-      èAdmin: false,
-      userId: null,
+      userData: null,
       mostraModaleModifica: false,
       utenteModificabile: {},
       filtri: {
@@ -213,22 +195,20 @@ export default {
   methods: {
     // Verifica se l'utente può modificare
     puòModificare(utente) {
-      return this.èAdmin || utente.id === parseInt(this.userId);
+      return utente.id === this.userData?.userId;
     },
     // Verifica se l'utente può cancellare
     puòCancellare(utente) {
-      return this.èAdmin || utente.id === parseInt(this.userId);
+      return utente.id === this.userData?.userId;
     },
     // Recupera gli utenti
     async recuperaUtenti() {
       try {
-        this.èAdmin = localStorage.getItem("isAdmin") === "true";
         this.userId = localStorage.getItem("userId");
 
         // Recupera tutti gli utenti
         const response = await axios.get("http://37.27.206.153:3000/users", {
           headers: {
-            isAdmin: this.èAdmin.toString(),
             userId: this.userId,
           },
         });
@@ -262,7 +242,6 @@ export default {
           `http://37.27.206.153:3000/users/${this.utenteModificabile.id}`,
           {
             Username: this.utenteModificabile.Username,
-            Surname: this.utenteModificabile.Surname,
             emailSpotify: this.utenteModificabile.emailSpotify,
             Posizione: this.utenteModificabile.Posizione,
             Password: this.utenteModificabile.Password,
@@ -270,7 +249,6 @@ export default {
           },
           {
             headers: {
-              isAdmin: this.èAdmin.toString(),
               userId: this.userId,
             },
           }
@@ -296,14 +274,13 @@ export default {
     },
     // Cancella un utente
     async cancellaUtente(id) {
-      if (!confirm(`Sei sicuro di voler eliminare l'utente con ID "${id}"?`)) {
+      if (!confirm(`Sei sicuro di voler eliminare il tuo account?`)) {
         return;
       }
 
       try {
         await axios.delete(`http://37.27.206.153:3000/users/${id}`, {
           headers: {
-            isAdmin: this.èAdmin.toString(),
             userId: this.userId,
           },
         });
@@ -334,10 +311,15 @@ export default {
       }
     },
     // Logout
-    logout() {
-      localStorage.removeItem("isAdmin");
-      localStorage.removeItem("userId");
-      this.$router.push("/"); // Reindirizza alla pagina di login
+    async logout() {
+      try {
+        await axios.post('http://37.27.206.153:3000/logout', {}, {
+          withCredentials: true
+        });
+        this.$router.push("/");
+      } catch (error) {
+        console.error('Logout error:', error);
+      }
     },
     // Applica i filtri
     applicaFiltri() {
@@ -361,18 +343,31 @@ export default {
     },
 
     favorite() {
-      axios.get('http://37.27.206.153:3000/favorites', {
-        withCredentials: true, // Include cookies
-      })
-      .then(response => {
-        alert('Top Tracks:', response.data);
-      })
-      .catch(error => {
-        alert('Error fetching favorites:', error);
-      });    
+      axios
+        .get("http://37.27.206.153:3000/favorites", {
+          withCredentials: true, // Include cookies
+        })
+        .then((response) => {
+          alert("Top Tracks:", response.data);
+        })
+        .catch((error) => {
+          alert("Error fetching favorites:", error);
+        });
+    },
+
+    async getUserData() {
+      try {
+        const response = await axios.get('http://37.27.206.153:3000/auth/me', {
+          withCredentials: true
+        });
+        this.userData = response.data;
+      } catch (error) {
+        this.$router.push("/");
+      }
     },
   },
   mounted() {
+    this.getUserData();
     this.recuperaUtenti();
     this.favorite();
   },
@@ -459,9 +454,7 @@ export default {
 }
 
 .user-card:hover {
-  transform: translateY(
-    -6px
-  ); /* Sollevamento leggermente maggiore al passaggio del mouse */
+  transform: translateY(-6px); /* Sollevamento leggermente maggiore al passaggio del mouse */
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1); /* Ombra migliorata al passaggio del mouse */
 }
 
@@ -612,14 +605,6 @@ export default {
   border-color: #8e44ad;
   box-shadow: 0 0 8px rgba(163, 212, 247, 0.5); /* Ombra sottile al focus */
   outline: none;
-}
-
-/* Gruppo di Checkbox */
-.checkbox-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 16px;
 }
 
 /* Pulsanti dei Filtri */

@@ -39,20 +39,35 @@ const router = createRouter({
   routes,
 });
 
-// Route Guard
-router.beforeEach((to, from, next) => {
-  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
-  const isAdmin = localStorage.getItem("isAdmin");
-  const userId = localStorage.getItem("userId");
+import axios from 'axios';
 
-  if (requiresAuth) {
-    if (isAdmin === null || userId === null) {
+// Route Guard
+router.beforeEach(async (to, from, next) => {
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+
+  try {
+    const response = await axios.get('http://37.27.206.153:3000/auth/check-session', {
+      withCredentials: true 
+    });
+    
+    const isAuthenticated = response.data.authenticated;
+
+    if (requiresAuth && !isAuthenticated) {
+      next({ name: 'login' });
+    } else if (to.name === 'login' && isAuthenticated) {
+      next({ name: 'userlist' });
+    } else if (to.name === 'register' && isAuthenticated) {
+      next({ name: 'userlist' });
+    }
+    else {
+      next();
+    }
+  } catch (error) {
+    if (requiresAuth) {
       next({ name: 'login' });
     } else {
       next();
     }
-  } else {
-    next();
   }
 });
 

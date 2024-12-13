@@ -12,23 +12,22 @@ export default {
   name: "AuthCallback",
   async mounted() {
     try {
-      // Make a request to the backend to get the user info
+      // Just verify the session is set
       const response = await axios.get("http://37.27.206.153:3000/auth/me", {
-        withCredentials: true, // Send cookies with the request
+        withCredentials: true
       });
 
-      // Set localStorage with the user info
-      localStorage.setItem("isAdmin", response.data.isAdmin.toString());
-      localStorage.setItem("userId", response.data.userId.toString());
-
-      // Redirect to the user list
-      this.$router.push("/users");
+      if (response.data) {
+        this.$router.push("/users");
+      } else {
+        throw new Error('Authentication failed');
+      }
     } catch (error) {
-      alert("Errore nell'autenticazione:", error);
-      alert("Autenticazione fallita. Riprova.");
+      console.error("Authentication error:", error);
+      alert("Authentication failed. Please try again.");
       this.$router.push("/");
     }
-  },
+  }
 };
 </script>
 

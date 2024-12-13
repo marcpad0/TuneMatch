@@ -43,10 +43,14 @@ app.use(cors({
 }));
 
 app.use(session({
-  secret: 'tuo_segreto', // Replace with a secure secret
+  secret: 'your-secret-key',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false } // Set to true if using HTTPS
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
 }));
 
 app.use(passport.initialize());
@@ -94,6 +98,7 @@ db.run(`
 // =====================
 // Passport Spotify Strategy
 // =====================
+// In server.js - Update Spotify strategy
 passport.use(new SpotifyStrategy(
   {
     clientID: CLIENT_ID,
@@ -104,60 +109,38 @@ passport.use(new SpotifyStrategy(
   function (req, accessToken, refreshToken, expires_in, profile, done) {
     const emailSpotify = (profile.emails && profile.emails[0]) ? profile.emails[0].value : '';
 
-    //delete token from database
-    dbtoken.run(
-      'DELETE FROM token WHERE emailSpotify = ?',
-      [emailSpotify],
-      (err) => {
-        if (err) {
-          console.error('Errore durante la cancellazione del token:', err.message);
-          return done(err);
-        }
-        console.log('Token cancellato dal database');
-      }
-    );
+    // Handle token database operations
+    dbtoken.serialize(() => {
+      // Delete existing token
+      dbtoken.run('DELETE FROM token WHERE emailSpotify = ?', [emailSpotify]);
+      
+      // Save new token
+      dbtoken.run('INSERT INTO token (emailSpotify, token) VALUES (?, ?)', 
+        [emailSpotify, accessToken]);
+    });
 
-    // Save token to database
-    dbtoken.run(
-      'INSERT INTO token (emailSpotify, token) VALUES (?, ?)',
-      [emailSpotify, accessToken],
-      (err) => {
-        if (err) {
-          console.error('Errore durante il salvataggio del token:', err.message);
-          return done(err);
-        }
-        console.log('Token salvato nel database');
-      }
-    );
-
-    // Check if user exists in the database
+    // Check/create user
     db.get('SELECT * FROM users WHERE emailSpotify = ?', [emailSpotify], (err, user) => {
       if (err) return done(err);
 
       if (!user) {
-        // Create a new user if not found
-        const username = profile.username || profile.displayName || 'spotifyuser';
+        // Create new user
+        const username = profile.username || profile.displayName || `spotify_${Date.now()}`;
         db.run(
           'INSERT INTO users (Username, emailSpotify, isAdmin, Position, Password, DateBorn) VALUES (?, ?, ?, ?, ?, ?)',
           [username, emailSpotify, 0, '', '', ''],
           function (err) {
             if (err) return done(err);
-            const newUser = {
+            return done(null, {
               id: this.lastID,
               Username: username,
               emailSpotify: emailSpotify,
-              isAdmin: 0,
-              Position: '',
-              Password: '',
-              DateBorn: '',
-            };
-            console.log('Added new User');
-            return done(null, newUser);
+              isAdmin: 0
+            });
           }
         );
       } else {
-        // User exists
-        console.log('User exists');
+        // Return existing user
         return done(null, user);
       }
     });
@@ -185,16 +168,30 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 // =====================
 
 // Initiate Spotify authentication
-app.get('/auth/spotify', passport.authenticate('spotify', {
-  scope: ['user-read-email', 'user-top-read'],
-  showDialog: true
-}));
+app.get('/auth/spotify', 
+  (req, res, next) => {
+    // Clear any existing session before starting Spotify auth
+    req.session.destroy((err) => {
+      if (err) console.error('Error clearing session:', err);
+      next();
+    });
+  },
+  passport.authenticate('spotify', {
+    scope: ['user-read-email', 'user-top-read'],
+    showDialog: true
+  })
+);
 
-// Spotify callback
 app.get('/auth/spotify/callback',
   passport.authenticate('spotify', { failureRedirect: '/' }),
   (req, res) => {
-    res.redirect('http://37.27.206.153:8080/auth/callback'); // Frontend route
+    // Set session data after successful Spotify auth
+    req.session.authenticated = true;
+    req.session.user = {
+      id: req.user.id,
+      isAdmin: req.user.isAdmin === 1
+    };
+    res.redirect('http://37.27.206.153:8080/auth/callback');
   }
 );
 
@@ -254,6 +251,14 @@ app.get('/favorites', async (req, res) => {
   }
 });
 
+// Add new route to check session
+app.get('/auth/check-session', (req, res) => {
+  res.json({
+    authenticated: req.session.authenticated === true,
+    user: req.session.user || null
+  });
+});
+
 // =====================
 // User Management Routes
 // =====================
@@ -290,7 +295,7 @@ app.get('/favorites', async (req, res) => {
  *           type: string
  *           description: La data di nascita dell'utente
  *       example:
- *         id: 1
+ *          id: 1
  *         Username: johndoe
  *         emailSpotify: johndoe@spotify.com
  *         isAdmin: 0
@@ -396,7 +401,7 @@ app.post('/users', (req, res) => {
  *       401:
  *         description: Credenziali non valide
  *       500:
- *         description: Errore del server
+ *         description:  Errore del server
  */
 app.post('/login', (req, res) => {
   const { Username, Password } = req.body;
@@ -405,38 +410,33 @@ app.post('/login', (req, res) => {
     return res.status(400).send({ message: 'Username e Password sono obbligatori.' });
   }
 
-  console.log('Tentativo di login:', Username);
-
   db.get('SELECT * FROM users WHERE Username = ?', [Username], (err, user) => {
     if (err) {
-      console.error('Errore nel recupero utente:', err.message);
       return res.status(500).send({ message: 'Errore del server.' });
     }
     if (!user || user.Password !== Password) {
       return res.status(401).send({ message: 'Credenziali non valide' });
     }
 
-    console.log('Login riuscito per utente:', user.Username);
+    // Set session data
+    req.session.authenticated = true;
+    req.session.user = {
+      id: user.id,
+      isAdmin: user.isAdmin  === 1
+    };
 
-    if (user.isAdmin) {
-      db.all('SELECT * FROM users', [], (err, rows) => {
-        if (err) {
-          console.error('Errore nel recupero utenti:', err.message);
-          return res.status(500).send({ message: 'Errore del server.' });
-        }
-        res.send({ 
-          isAdmin: true, 
-          users: rows,
-          userId: user.id
-        });
-      });
-    } else {
-      res.send({ 
-        isAdmin: false, 
-        user: user,
-        userId: user.id
-      });
+    res.send({ message: 'Login successful' });
+  });
+});
+
+// Add logout route
+app.post('/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).send({ message: 'Error logging out' });
     }
+    res.clearCookie('connect.sid');
+    res.send({ message: 'Logged out successfully'  });
   });
 });
 
@@ -452,7 +452,7 @@ app.post('/login', (req, res) => {
  *         schema:
  *           type: string
  *         description: Filtra per posizione
- *       - in: query
+ *       -  in: query
  *         name: DateBorn
  *         schema:
  *           type: string
@@ -460,7 +460,7 @@ app.post('/login', (req, res) => {
  *     responses:
  *       200:
  *         description: Lista degli utenti
- *         content:
+ *         content: 
  *           application/json:
  *             schema:
  *               type: array
@@ -470,7 +470,7 @@ app.post('/login', (req, res) => {
  *         description: Errore del server
  */
 app.get('/users', (req, res) => {
-  const { Position, DateBorn } = req.query;
+  const { Position,  DateBorn } = req.query;
 
   let query = 'SELECT * FROM users';
   const conditions = [];
@@ -492,51 +492,51 @@ app.get('/users', (req, res) => {
 
   db.all(query, params, (err, rows) => {
     if (err) {
-      console.error('Errore nel recupero utenti:', err.message);
-      return res.status(500).send({ message: 'Errore del server.' });
-    }
-    res.send(rows);
+      console.error('Errore  nel  recupero utenti:',  err.message);
+      return  res.status(500).send({  message: 'Errore  del  server.'  }); 
+    } 
+    res.send(rows); 
   });
-});
+}); 
 
-/**
- * @swagger
- * /users/{id}:
- *   put:
- *     summary: Aggiornare un utente per ID
+/** 
+ * @swagger 
+ *  /users/{id}: 
+ *   put: 
+ *     summary: Aggiornare un  utente per  ID 
  *     tags: [Users]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: L'ID dell'utente
- *     requestBody:
- *       required: true
+ *      parameters:
+ *       - in:  path
+ *         name: id 
+ *         required: true 
+ *          schema:
+ *           type:  integer 
+ *          description: L'ID  dell'utente
+ *     requestBody: 
+ *       required:  true
  *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/User'
- *           example:
- *             Username: johndoe
- *             emailSpotify: johndoe@spotify.com
- *             Position: Treviglio
- *             Password: newpassword123
- *             DateBorn: 1990-01-01
- *     responses:
+ *          application/json:
+ *            schema:
+ *             $ref:  '#/components/schemas/User' 
+ *            example:
+ *             Username:  johndoe
+ *             emailSpotify:  johndoe@spotify.com
+ *              Position: Treviglio
+ *              Password: newpassword123 
+ *              DateBorn: 1990 -01- 01
+ *      responses:
  *       200:
- *         description: Utente aggiornato con successo
- *       403:
- *         description: Forbidden: Non puoi aggiornare altri utenti
- *       404:
- *         description: Utente non trovato
- *       500:
- *         description: Errore del server
- */
-app.put('/users/:id', (req, res) => {
-  const { Username, emailSpotify, Position, Password, DateBorn } = req.body;
-  const { id } = req.params;
+ *         description:  Utente  aggiornato con  successo 
+ *        403: 
+ *          description:  Forbidden:  Non puoi aggiornare altri  utenti 
+ *       404: 
+ *         description: Utente  non trovato 
+ *       500: 
+ *          description:  Errore del server
+ */ 
+app.put('/users/:id', (req,  res) =>  {
+  const  {  Username, emailSpotify,  Position, Password, DateBorn  } =   req.body;
+  const {  id  } = req.params;
 
   const isAdmin = req.headers['isadmin'] === 'true';
   const requesterId = req.headers['userid'];
@@ -650,6 +650,14 @@ app.delete('/users/:id', (req, res) => {
     console.log(`Utente cancellato con ID: ${id}`);
     res.send({ message: `User deleted with ID: ${id}` });
   });
+});
+
+// Update protected routes to check session
+app.use('/users', (req, res, next) => {
+  if (!req.session.authenticated) {
+    return res.status(401).send({ message: 'Not authenticated' });
+  }
+  next();
 });
 
 // =====================
