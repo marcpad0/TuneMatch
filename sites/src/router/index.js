@@ -1,7 +1,9 @@
+// src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router';
 import Register from '../components/todo-item.vue';
 import Login from '../components/todo-item2.vue';
 import UserList from '../components/UserList.vue';
+import AuthCallback from '../components/AuthCallback.vue'; // Import the new component
 
 const routes = [
   {
@@ -19,6 +21,11 @@ const routes = [
     name: 'userlist',
     component: UserList,
     meta: { requiresAuth: true },
+  },
+  {
+    path: '/auth/callback',
+    name: 'auth-callback',
+    component: AuthCallback,
   },
   // Redirect any unknown paths to login
   {

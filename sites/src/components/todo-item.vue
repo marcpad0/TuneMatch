@@ -55,6 +55,16 @@
         </div>
         <button type="submit" class="login-button">Registrati</button>
       </form>
+
+      <!-- Pulsante per il login con Spotify -->
+      <div class="spotify-login">
+        <button @click="loginWithSpotify" class="spotify-button">
+          <img src="../assets/spotify-logo.png" alt="Spotify Logo" />
+          Accedi con Spotify
+        </button>
+      </div>
+
+
       <p class="register-link">
         Hai già un account?
         <router-link to="/login">Accedi</router-link>
@@ -71,8 +81,7 @@ export default {
   data() {
     return {
       username: "",
-      emailSpotify: "",
-      
+      emailSpotify: "",  
       position: "",
       password: "",
       dateBorn: "",
@@ -101,12 +110,42 @@ export default {
         }
       }
     },
+    loginWithSpotify() {
+      window.location.href = "http://37.27.206.153:3000/auth/spotify";
+    },
   },
 };
 </script>
 
 <style scoped>
-/* Reset di base per garantire la coerenza tra i browser */
+.spotify-login {
+  text-align: center;
+  margin: 20px 0;
+}
+
+.spotify-button {
+  background-color: #1DB954;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.spotify-button img {
+  width: 20px;
+  height: 20px;
+  margin-right: 10px;
+}
+
+.spotify-button:hover {
+  background-color: #1ed760;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
