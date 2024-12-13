@@ -55,22 +55,21 @@ export default {
     };
   },
   methods: {
+        // Inside the loginUser method in todo-item2.vue
     async loginUser() {
       try {
-        const response = await axios.post("http://37.27.206.153:3000/login", {
+        await axios.post("http://37.27.206.153:3000/login", {
           Username: this.username,
           Password: this.password,
+        }, {
+          withCredentials: true // Important for cookies
         });
-
-        // Memorizza i dati dell'utente nel localStorage
-        localStorage.setItem("isAdmin", response.data.isAdmin);
-        localStorage.setItem("userId", response.data.userId);
-
-        // Reindirizza alla pagina UserList
+    
+        // Redirect to UserList
         this.$router.push("/users");
       } catch (error) {
         console.error(error);
-        if (error.response && error.response.data && error.response.data.message) {
+        if (error.response?.data?.message) {
           alert(`Login fallito: ${error.response.data.message}`);
         } else {
           alert(`Login fallito: ${error.message}`);
