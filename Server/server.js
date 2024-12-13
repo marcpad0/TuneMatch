@@ -12,7 +12,7 @@ const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const { swaggerUi, swaggerDocs } = require('./swagger'); // Ensure Swagger is configured properly
 const dotenv = require('dotenv'); // For environment variables
-const path = require('path');
+
 
 const app = express();
 const port = 3000;
