@@ -367,14 +367,13 @@ app.post('/logout', (req, res) => {
 // Get users with filters
 app.get('/users', (req, res) => {
   const { Position, DateBorn } = req.query;
-
   let query = 'SELECT * FROM users';
   const conditions = [];
   const params = [];
 
   if (Position) {
-    conditions.push('Position = ?');
-    params.push(Position);
+    conditions.push('Position LIKE ?');
+    params.push(`%${Position}%`); // Use LIKE with wildcards
   }
 
   if (DateBorn) {
