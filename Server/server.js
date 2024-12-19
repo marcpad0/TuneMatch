@@ -7,12 +7,11 @@ const express = require('express');
 const passport = require('passport');
 const SpotifyStrategy = require('passport-spotify').Strategy;
 const session = require('express-session');
-const fetch = require('node-fetch'); // Make sure you've run: npm install node-fetch
+const fetch = require('node-fetch'); // Ensure you've run: npm install node-fetch
 const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const { swaggerUi, swaggerDocs } = require('./swagger'); // Ensure Swagger is configured properly
 const dotenv = require('dotenv'); // For environment variables
-
 
 const app = express();
 const port = 3000;
@@ -43,11 +42,11 @@ app.use(cors({
 }));
 
 app.use(session({
-  secret: 'your-secret-key',
+  secret: 'your-secret-key', // Replace with a strong secret in production
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV === 'production', // Set to true in production
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
@@ -98,7 +97,6 @@ db.run(`
 // =====================
 // Passport Spotify Strategy
 // =====================
-// In server.js - Update Spotify strategy
 passport.use(new SpotifyStrategy(
   {
     clientID: CLIENT_ID,
@@ -163,106 +161,6 @@ passport.deserializeUser((id, done) => {
 // =====================
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
-// =====================
-// Authentication Routes
-// =====================
-
-// Initiate Spotify authentication
-app.get('/auth/spotify', 
-  (req, res, next) => {
-    // Clear any existing session before starting Spotify auth
-    req.session.destroy((err) => {
-      if (err) console.error('Error clearing session:', err);
-      next();
-    });
-  },
-  passport.authenticate('spotify', {
-    scope: ['user-read-email', 'user-top-read'],
-    showDialog: true
-  })
-);
-
-app.get('/auth/spotify/callback',
-  passport.authenticate('spotify', { failureRedirect: '/' }),
-  (req, res) => {
-    // Set session data after successful Spotify auth
-    req.session.authenticated = true;
-    req.session.user = {
-      id: req.user.id,
-      isAdmin: req.user.isAdmin === 1
-    };
-    res.redirect('http://37.27.206.153:8080/auth/callback');
-  }
-);
-
-// Get current user info
-app.get('/auth/me', (req, res) => {
-  if (!req.isAuthenticated()) {
-    return res.status(401).send({ message: 'Not authenticated' });
-  }
-  res.send({
-    userId: req.user.id,
-    isAdmin: req.user.isAdmin === 1,
-  });
-});
-
-// Login with Spotifysss
-app.get('/login/spotify', (req, res) => {
-  if (req.isAuthenticated()) {
-    return res.redirect('http://37.27.206.153:8080/auth/callback'); // Frontend route
-  }
-  res.redirect('/auth/spotify');
-});
-
-// Get user's favorite (top) tracks from Spotify
-app.get('/favorites', async (req, res) => {
-  if (!req.isAuthenticated()) return res.status(401).send('Non autenticato');
-
-  const emailSpotify = req.user.emailSpotify;
-  console.log('Email Spotify:', emailSpotify);
-
-  try {
-    const row = await new Promise((resolve, reject) => {
-      dbtoken.get('SELECT * FROM token WHERE emailSpotify = ?', [emailSpotify], (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
-
-    if (!row || !row.token) {
-      return res.status(400).send('Access Token non disponibile');
-    }
-
-    const accessToken = row.token;
-    console.log('Access Token:', accessToken);
-
-    const response = await fetch('https://api.spotify.com/v1/me/top/tracks', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    const data = await response.json();
-    console.log('Dati:', data);
-
-    const tracks = data.items || [];
-    res.json(tracks);
-
-  } catch (error) {
-    console.error('Errore:', error);
-    res.status(500).send('Errore del server');
-  }
-});
-
-// Add new route to check session
-app.get('/auth/check-session', (req, res) => {
-  res.json({
-    authenticated: req.session.authenticated === true,
-    user: req.session.user || null
-  });
-});
-
-// =====================
-// User Management Routes
-// =====================
-
 /**
  * @swagger
  * components:
@@ -295,7 +193,7 @@ app.get('/auth/check-session', (req, res) => {
  *           type: string
  *           description: La data di nascita dell'utente
  *       example:
- *          id: 1
+ *         id: 1
  *         Username: johndoe
  *         emailSpotify: johndoe@spotify.com
  *         isAdmin: 0
@@ -401,7 +299,7 @@ app.post('/users', (req, res) => {
  *       401:
  *         description: Credenziali non valide
  *       500:
- *         description:  Errore del server
+ *         description: Errore del server
  */
 app.post('/login', (req, res) => {
   const { Username, Password } = req.body;
@@ -422,21 +320,32 @@ app.post('/login', (req, res) => {
     req.session.authenticated = true;
     req.session.user = {
       id: user.id,
-      isAdmin: user.isAdmin  === 1
+      isAdmin: user.isAdmin === 1
     };
 
     res.send({ message: 'Login successful' });
   });
 });
 
-// Add logout route
+/**
+ * @swagger
+ * /logout:
+ *   post:
+ *     summary: Logout dell'utente
+ *     tags: [Users]
+ *     responses:
+ *       200:
+ *         description: Logged out successfully
+ *       500:
+ *         description: Error logging out
+ */
 app.post('/logout', (req, res) => {
   req.session.destroy((err) => {
     if (err) {
-      return res.status(500).send({ message: 'Error logging out' });
+      return res.status(500).send({ message: 'Errore durante il logout.' });
     }
     res.clearCookie('connect.sid');
-    res.send({ message: 'Logged out successfully'  });
+    res.send({ message: 'Logout effettuato con successo' });
   });
 });
 
@@ -452,7 +361,7 @@ app.post('/logout', (req, res) => {
  *         schema:
  *           type: string
  *         description: Filtra per posizione
- *       -  in: query
+ *       - in: query
  *         name: DateBorn
  *         schema:
  *           type: string
@@ -470,7 +379,7 @@ app.post('/logout', (req, res) => {
  *         description: Errore del server
  */
 app.get('/users', (req, res) => {
-  const { Position,  DateBorn } = req.query;
+  const { Position, DateBorn } = req.query;
 
   let query = 'SELECT * FROM users';
   const conditions = [];
@@ -492,51 +401,51 @@ app.get('/users', (req, res) => {
 
   db.all(query, params, (err, rows) => {
     if (err) {
-      console.error('Errore  nel  recupero utenti:',  err.message);
-      return  res.status(500).send({  message: 'Errore  del  server.'  }); 
-    } 
-    res.send(rows); 
+      console.error('Errore nel recupero utenti:', err.message);
+      return res.status(500).send({ message: 'Errore del server.' });
+    }
+    res.send(rows);
   });
-}); 
+});
 
-/** 
- * @swagger 
- *  /users/{id}: 
- *   put: 
- *     summary: Aggiornare un  utente per  ID 
+/**
+ * @swagger
+ * /users/{id}:
+ *   put:
+ *     summary: Aggiornare un utente per ID
  *     tags: [Users]
- *      parameters:
- *       - in:  path
- *         name: id 
- *         required: true 
- *          schema:
- *           type:  integer 
- *          description: L'ID  dell'utente
- *     requestBody: 
- *       required:  true
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: L'ID dell'utente
+ *     requestBody:
+ *       required: true
  *       content:
- *          application/json:
- *            schema:
- *             $ref:  '#/components/schemas/User' 
- *            example:
- *             Username:  johndoe
- *             emailSpotify:  johndoe@spotify.com
- *              Position: Treviglio
- *              Password: newpassword123 
- *              DateBorn: 1990 -01- 01
- *      responses:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/User'
+ *           example:
+ *             Username: johndoe
+ *             emailSpotify: johndoe@spotify.com
+ *             Position: Treviglio
+ *             Password: newpassword123
+ *             DateBorn: 1990-01-01
+ *     responses:
  *       200:
- *         description:  Utente  aggiornato con  successo 
- *        403: 
- *          description:  Forbidden:  Non puoi aggiornare altri  utenti 
- *       404: 
- *         description: Utente  non trovato 
- *       500: 
- *          description:  Errore del server
- */ 
-app.put('/users/:id', (req,  res) =>  {
-  const  {  Username, emailSpotify,  Position, Password, DateBorn  } =   req.body;
-  const {  id  } = req.params;
+ *         description: Utente aggiornato con successo
+ *       403:
+ *         description: Forbidden: Non puoi aggiornare altri utenti
+ *       404:
+ *         description: Utente non trovato
+ *       500:
+ *         description: Errore del server
+ */
+app.put('/users/:id', (req, res) => {
+  const { Username, emailSpotify, Position, Password, DateBorn } = req.body;
+  const { id } = req.params;
 
   const isAdmin = req.headers['isadmin'] === 'true';
   const requesterId = req.headers['userid'];
@@ -652,6 +561,150 @@ app.delete('/users/:id', (req, res) => {
   });
 });
 
+// =====================
+// Authentication Routes
+// =====================
+
+// Initiate Spotify authentication
+app.get('/auth/spotify', 
+  (req, res, next) => {
+    // Clear any existing session before starting Spotify auth
+    req.session.destroy((err) => {
+      if (err) console.error('Error clearing session:', err);
+      next();
+    });
+  },
+  passport.authenticate('spotify', {
+    scope: ['user-read-email', 'user-top-read'],
+    showDialog: true
+  })
+);
+
+app.get('/auth/spotify/callback',
+  passport.authenticate('spotify', { failureRedirect: '/' }),
+  (req, res) => {
+    // Set session data after successful Spotify auth
+    req.session.authenticated = true;
+    req.session.user = {
+      id: req.user.id,
+      isAdmin: req.user.isAdmin === 1
+    };
+    res.redirect('http://37.27.206.153:8080/auth/callback');
+  }
+);
+
+// Get current user info
+app.get('/auth/me', (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).send({ message: 'Not authenticated' });
+  }
+  res.send({
+    userId: req.user.id,
+    isAdmin: req.user.isAdmin === 1,
+  });
+});
+
+// Login with Spotify
+app.get('/login/spotify', (req, res) => {
+  if (req.isAuthenticated()) {
+    return res.redirect('http://37.27.206.153:8080/auth/callback'); // Frontend route
+  }
+  res.redirect('/auth/spotify');
+});
+
+// Get user's favorite (top) tracks from Spotify
+/**
+ * @swagger
+ * /favorites:
+ *   get:
+ *     summary: Ottenere le tracce preferite dell'utente da Spotify
+ *     tags: [Users]
+ *     responses:
+ *       200:
+ *         description: Lista delle tracce preferite
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *       401:
+ *         description: Non autenticato
+ *       400:
+ *         description: Access Token non disponibile
+ *       500:
+ *         description: Errore del server
+ */
+app.get('/favorites', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).send('Non autenticato');
+
+  const emailSpotify = req.user.emailSpotify;
+  console.log('Email Spotify:', emailSpotify);
+
+  try {
+    const row = await new Promise((resolve, reject) => {
+      dbtoken.get('SELECT * FROM token WHERE emailSpotify = ?', [emailSpotify], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (!row || !row.token) {
+      return res.status(400).send('Access Token non disponibile');
+    }
+
+    const accessToken = row.token;
+    console.log('Access Token:', accessToken);
+
+    const response = await fetch('https://api.spotify.com/v1/me/top/tracks', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const data = await response.json();
+    console.log('Dati:', data);
+
+    const tracks = data.items || [];
+    res.json(tracks);
+
+  } catch (error) {
+    console.error('Errore:', error);
+    res.status(500).send('Errore del server');
+  }
+});
+
+// Add new route to check session
+/**
+ * @swagger
+ * /auth/check-session:
+ *   get:
+ *     summary: Controllare lo stato della sessione utente
+ *     tags: [Users]
+ *     responses:
+ *       200:
+ *         description: Stato della sessione
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 authenticated:
+ *                   type: boolean
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     isAdmin:
+ *                       type: boolean
+ *       500:
+ *         description: Errore del server
+ */
+app.get('/auth/check-session', (req, res) => {
+  res.json({
+    authenticated: req.session.authenticated === true,
+    user: req.session.user || null
+  });
+});
+
 // Update protected routes to check session
 app.use('/users', (req, res, next) => {
   if (!req.session.authenticated) {
@@ -663,6 +716,21 @@ app.use('/users', (req, res, next) => {
 // =====================
 // Home Route
 // =====================
+/**
+ * @swagger
+ * /:
+ *   get:
+ *     summary: Home route
+ *     tags: [Users]
+ *     responses:
+ *       200:
+ *         description: Messaggio di benvenuto
+ *         content:
+ *           text/plain:
+ *             schema:
+ *               type: string
+ *             example: Benvenuto al server Express!
+ */
 app.get('/', (req, res) => {
   res.send('Benvenuto al server Express!');
 });
