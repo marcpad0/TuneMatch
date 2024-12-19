@@ -1,5 +1,3 @@
-// server.js
-
 // =====================
 // Imports & Initial Setup
 // =====================
@@ -7,16 +5,18 @@ const express = require('express');
 const passport = require('passport');
 const SpotifyStrategy = require('passport-spotify').Strategy;
 const session = require('express-session');
-const fetch = require('node-fetch'); // Ensure you've run: npm install node-fetch
+const fetch = require('node-fetch');
 const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
-const { swaggerUi, swaggerDocs } = require('./swagger'); // Ensure Swagger is configured properly
-const dotenv = require('dotenv'); // For environment variables
+const { swaggerUi, swaggerDocs } = require('./swagger');
+const dotenv = require('dotenv');
+const http = require('http');
+const { Server } = require('ws'); // WebSocket server
+
+dotenv.config();
 
 const app = express();
 const port = 3000;
-
-dotenv.config();
 
 // =====================
 // Spotify Configuration
@@ -35,7 +35,6 @@ if (!CLIENT_ID || !CLIENT_SECRET || !CALLBACK_URL) {
 // =====================
 app.use(express.json());
 
-// CORS setup for credentials
 app.use(cors({
   origin: 'http://37.27.206.153:8080', // Frontend origin
   credentials: true,
@@ -46,7 +45,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production', // Set to true in production
+    secure: process.env.NODE_ENV === 'production', 
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
@@ -109,12 +108,8 @@ passport.use(new SpotifyStrategy(
 
     // Handle token database operations
     dbtoken.serialize(() => {
-      // Delete existing token
       dbtoken.run('DELETE FROM token WHERE emailSpotify = ?', [emailSpotify]);
-      
-      // Save new token
-      dbtoken.run('INSERT INTO token (emailSpotify, token) VALUES (?, ?)', 
-        [emailSpotify, accessToken]);
+      dbtoken.run('INSERT INTO token (emailSpotify, token) VALUES (?, ?)', [emailSpotify, accessToken]);
     });
 
     // Check/create user
@@ -122,7 +117,6 @@ passport.use(new SpotifyStrategy(
       if (err) return done(err);
 
       if (!user) {
-        // Create new user
         const username = profile.username || profile.displayName || `spotify_${Date.now()}`;
         db.run(
           'INSERT INTO users (Username, emailSpotify, isAdmin, Position, Password, DateBorn) VALUES (?, ?, ?, ?, ?, ?)',
@@ -138,7 +132,6 @@ passport.use(new SpotifyStrategy(
           }
         );
       } else {
-        // Return existing user
         return done(null, user);
       }
     });
@@ -173,25 +166,18 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
  *       properties:
  *         id:
  *           type: integer
- *           description: L'ID auto-generato dell'utente
  *         Username:
  *           type: string
- *           description: Il nome utente
  *         emailSpotify:
  *           type: string
- *           description: L'email Spotify dell'utente
  *         isAdmin:
  *           type: integer
- *           description: Flag di amministratore (0 o 1)
  *         Position:
  *           type: string
- *           description: La posizione dell'utente
  *         Password:
  *           type: string
- *           description: La password dell'utente
  *         DateBorn:
  *           type: string
- *           description: La data di nascita dell'utente
  *       example:
  *         id: 1
  *         Username: johndoe
@@ -221,12 +207,6 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/User'
- *           example:
- *             Username: johndoe
- *             emailSpotify: johndoe@spotify.com
- *             Position: Treviglio
- *             Password: password123
- *             DateBorn: 1990-01-01
  *     responses:
  *       200:
  *         description: Utente aggiunto con successo
@@ -237,6 +217,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
  *       500:
  *         description: Errore del server
  */
+// Create user
 app.post('/users', (req, res) => {
   const { Username, emailSpotify, Position, Password, DateBorn } = req.body;
 
@@ -288,9 +269,6 @@ app.post('/users', (req, res) => {
  *                 type: string
  *               Password:
  *                 type: string
- *             example:
- *               Username: johndoe
- *               Password: password123
  *     responses:
  *       200:
  *         description: Login riuscito
@@ -301,6 +279,7 @@ app.post('/users', (req, res) => {
  *       500:
  *         description: Errore del server
  */
+// Login
 app.post('/login', (req, res) => {
   const { Username, Password } = req.body;
 
@@ -316,12 +295,14 @@ app.post('/login', (req, res) => {
       return res.status(401).send({ message: 'Credenziali non valide' });
     }
 
-    // Set session data
     req.session.authenticated = true;
     req.session.user = {
       id: user.id,
       isAdmin: user.isAdmin === 1
     };
+
+    // Mark user online
+    setUserOnline(user.id, true);
 
     res.send({ message: 'Login successful' });
   });
@@ -335,11 +316,16 @@ app.post('/login', (req, res) => {
  *     tags: [Users]
  *     responses:
  *       200:
- *         description: Logged out successfully
+ *         description: Logout effettuato con successo
  *       500:
- *         description: Error logging out
+ *         description: Errore del server
  */
+// Logout
 app.post('/logout', (req, res) => {
+  if (req.session.user && req.session.user.id) {
+    setUserOnline(req.session.user.id, false);
+  }
+
   req.session.destroy((err) => {
     if (err) {
       return res.status(500).send({ message: 'Errore durante il logout.' });
@@ -378,6 +364,7 @@ app.post('/logout', (req, res) => {
  *       500:
  *         description: Errore del server
  */
+// Get users with filters
 app.get('/users', (req, res) => {
   const { Position, DateBorn } = req.query;
 
@@ -427,12 +414,6 @@ app.get('/users', (req, res) => {
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/User'
- *           example:
- *             Username: johndoe
- *             emailSpotify: johndoe@spotify.com
- *             Position: Treviglio
- *             Password: newpassword123
- *             DateBorn: 1990-01-01
  *     responses:
  *       200:
  *         description: Utente aggiornato con successo
@@ -443,6 +424,7 @@ app.get('/users', (req, res) => {
  *       500:
  *         description: Errore del server
  */
+// Update user
 app.put('/users/:id', (req, res) => {
   const { Username, emailSpotify, Position, Password, DateBorn } = req.body;
   const { id } = req.params;
@@ -450,13 +432,10 @@ app.put('/users/:id', (req, res) => {
   const isAdmin = req.headers['isadmin'] === 'true';
   const requesterId = req.headers['userid'];
 
-  console.log('Richiesta di aggiornamento utente:', { id, isAdmin, requesterId });
-
   const userId = id.toString();
   const reqId = requesterId.toString();
 
   if (!isAdmin && reqId !== userId) {
-    console.log('Accesso negato: Utente non amministratore che tenta di aggiornare un altro profilo.');
     return res.status(403).send({ message: 'Forbidden: Cannot update other users' });
   }
 
@@ -485,7 +464,6 @@ app.put('/users/:id', (req, res) => {
           if (this.changes === 0) {
             return res.status(404).send({ message: 'User not found' });
           }
-          console.log(`Utente aggiornato con ID: ${id}`);
           res.send({ message: `User updated with ID: ${id}` });
         }
       );
@@ -502,7 +480,6 @@ app.put('/users/:id', (req, res) => {
         if (this.changes === 0) {
           return res.status(404).send({ message: 'User not found' });
         }
-        console.log(`Utente aggiornato con ID: ${id}`);
         res.send({ message: `User updated with ID: ${id}` });
       }
     );
@@ -532,19 +509,17 @@ app.put('/users/:id', (req, res) => {
  *       500:
  *         description: Errore del server
  */
+// Delete user
 app.delete('/users/:id', (req, res) => {
   const { id } = req.params;
 
   const isAdmin = req.headers['isadmin'] === 'true';
   const requesterId = req.headers['userid'];
 
-  console.log('Richiesta di cancellazione utente:', { id, isAdmin, requesterId });
-
   const userId = id.toString();
   const reqId = requesterId.toString();
 
   if (!isAdmin && reqId !== userId) {
-    console.log('Accesso negato: Utente non amministratore che tenta di cancellare un altro profilo.');
     return res.status(403).send({ message: 'Forbidden: Cannot delete other users' });
   }
 
@@ -556,26 +531,20 @@ app.delete('/users/:id', (req, res) => {
     if (this.changes === 0) {
       return res.status(404).send({ message: 'User not found' });
     }
-    console.log(`Utente cancellato con ID: ${id}`);
     res.send({ message: `User deleted with ID: ${id}` });
   });
 });
 
-// =====================
-// Authentication Routes
-// =====================
-
-// Initiate Spotify authentication
+// Spotify Auth
 app.get('/auth/spotify', 
   (req, res, next) => {
-    // Clear any existing session before starting Spotify auth
     req.session.destroy((err) => {
       if (err) console.error('Error clearing session:', err);
       next();
     });
   },
   passport.authenticate('spotify', {
-    scope: ['user-read-email', 'user-top-read'],
+    scope: ['user-read-email', 'user-top-read', 'user-read-currently-playing'],
     showDialog: true
   })
 );
@@ -583,17 +552,30 @@ app.get('/auth/spotify',
 app.get('/auth/spotify/callback',
   passport.authenticate('spotify', { failureRedirect: '/' }),
   (req, res) => {
-    // Set session data after successful Spotify auth
     req.session.authenticated = true;
     req.session.user = {
       id: req.user.id,
       isAdmin: req.user.isAdmin === 1
     };
+
+    setUserOnline(req.user.id, true);
+
     res.redirect('http://37.27.206.153:8080/auth/callback');
   }
 );
 
-// Get current user info
+/**
+ * @swagger
+ * /auth/me:
+ *   get:
+ *     summary: Ottenere informazioni sull'utente autenticato
+ *     tags: [Users]
+ *     responses:
+ *       200:
+ *         description: Informazioni sull'utente autenticato
+ *       401:
+ *         description: Non autenticato
+ */
 app.get('/auth/me', (req, res) => {
   if (!req.isAuthenticated()) {
     return res.status(401).send({ message: 'Not authenticated' });
@@ -601,18 +583,17 @@ app.get('/auth/me', (req, res) => {
   res.send({
     userId: req.user.id,
     isAdmin: req.user.isAdmin === 1,
+    emailSpotify: req.user.emailSpotify
   });
 });
 
-// Login with Spotify
 app.get('/login/spotify', (req, res) => {
   if (req.isAuthenticated()) {
-    return res.redirect('http://37.27.206.153:8080/auth/callback'); // Frontend route
+    return res.redirect('http://37.27.206.153:8080/auth/callback');
   }
   res.redirect('/auth/spotify');
 });
 
-// Get user's favorite (top) tracks from Spotify
 /**
  * @swagger
  * /favorites:
@@ -622,12 +603,6 @@ app.get('/login/spotify', (req, res) => {
  *     responses:
  *       200:
  *         description: Lista delle tracce preferite
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
  *       401:
  *         description: Non autenticato
  *       400:
@@ -639,8 +614,6 @@ app.get('/favorites', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).send('Non autenticato');
 
   const emailSpotify = req.user.emailSpotify;
-  console.log('Email Spotify:', emailSpotify);
-
   try {
     const row = await new Promise((resolve, reject) => {
       dbtoken.get('SELECT * FROM token WHERE emailSpotify = ?', [emailSpotify], (err, row) => {
@@ -654,13 +627,11 @@ app.get('/favorites', async (req, res) => {
     }
 
     const accessToken = row.token;
-    console.log('Access Token:', accessToken);
 
     const response = await fetch('https://api.spotify.com/v1/me/top/tracks', {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     const data = await response.json();
-    console.log('Dati:', data);
 
     const tracks = data.items || [];
     res.json(tracks);
@@ -671,7 +642,6 @@ app.get('/favorites', async (req, res) => {
   }
 });
 
-// Add new route to check session
 /**
  * @swagger
  * /auth/check-session:
@@ -681,20 +651,6 @@ app.get('/favorites', async (req, res) => {
  *     responses:
  *       200:
  *         description: Stato della sessione
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 authenticated:
- *                   type: boolean
- *                 user:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: integer
- *                     isAdmin:
- *                       type: boolean
  *       500:
  *         description: Errore del server
  */
@@ -705,7 +661,7 @@ app.get('/auth/check-session', (req, res) => {
   });
 });
 
-// Update protected routes to check session
+// Protect /users routes after authentication check
 app.use('/users', (req, res, next) => {
   if (!req.session.authenticated) {
     return res.status(401).send({ message: 'Not authenticated' });
@@ -713,9 +669,6 @@ app.use('/users', (req, res, next) => {
   next();
 });
 
-// =====================
-// Home Route
-// =====================
 /**
  * @swagger
  * /:
@@ -725,11 +678,6 @@ app.use('/users', (req, res, next) => {
  *     responses:
  *       200:
  *         description: Messaggio di benvenuto
- *         content:
- *           text/plain:
- *             schema:
- *               type: string
- *             example: Benvenuto al server Express!
  */
 app.get('/', (req, res) => {
   res.send('Benvenuto al server Express!');
@@ -749,9 +697,125 @@ process.on('SIGINT', () => {
 });
 
 // =====================
+// WebSocket Server Setup
+// =====================
+const server = http.createServer(app);
+const wss = new Server({ server });
+
+let usersStatus = {}; 
+
+function broadcast(data) {
+  const message = JSON.stringify(data);
+  wss.clients.forEach(client => {
+    if (client.readyState === 1) {
+      client.send(message);
+    }
+  });
+}
+
+function broadcastUserStatuses() {
+  const allStatuses = Object.keys(usersStatus).map(userId => ({
+    userId,
+    ...usersStatus[userId]
+  }));
+  broadcast({ type: 'status_update', data: allStatuses });
+}
+
+wss.on('connection', (ws) => {
+  // Send current statuses to the newly connected client
+  const allStatuses = Object.keys(usersStatus).map(userId => ({
+    userId,
+    ...usersStatus[userId]
+  }));
+  ws.send(JSON.stringify({ type: 'status_update', data: allStatuses }));
+});
+
+function setUserOnline(userId, isOnline = true) {
+  if (!usersStatus[userId]) {
+    usersStatus[userId] = {};
+  }
+  usersStatus[userId].online = isOnline;
+  // No longer clearing the listening info on going offline.
+  broadcastUserStatuses();
+}
+
+function setUserListening(userId, listeningInfo) {
+  if (!usersStatus[userId]) {
+    usersStatus[userId] = {};
+  }
+  // Even if the user is offline, we store their listening info.
+  usersStatus[userId].listening = listeningInfo;
+  broadcastUserStatuses();
+}
+
+
+async function updateListeningStatuses() {
+  try {
+    dbtoken.all('SELECT emailSpotify, token FROM token', async (err, rows) => {
+      if (err) {
+        console.error('Error fetching tokens:', err);
+        return;
+      }
+
+      for (const row of rows) {
+        const emailSpotify = row.emailSpotify;
+        const accessToken = row.token;
+
+        const user = await new Promise((resolve, reject) => {
+          db.get('SELECT id FROM users WHERE emailSpotify = ?', [emailSpotify], (err, user) => {
+            if (err) reject(err);
+            else resolve(user);
+          });
+        });
+
+        if (!user) continue;
+
+        try {
+          const response = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          
+          if (response.status === 200) {
+            const data = await response.json();
+            if (data && data.item) {
+              const listeningInfo = {
+                trackName: data.item.name,
+                artists: data.item.artists.map(a => a.name).join(', '),
+                album: data.item.album.name,
+                trackUrl: data.item.external_urls.spotify
+              };
+              setUserListening(user.id, listeningInfo);
+            } else {
+              // Not currently playing anything
+              if (usersStatus[user.id]) {
+                usersStatus[user.id].listening = null;
+              }
+            }
+          } else {
+            // No access or not currently playing
+            if (usersStatus[user.id]) {
+              usersStatus[user.id].listening = null;
+            }
+          }
+        } catch (error) {
+          console.error('Error updating listening status for user', user.id, error);
+        }
+      }
+
+      broadcastUserStatuses();
+    });
+  } catch (error) {
+    console.error('Error updating listening statuses:', error);
+  }
+}
+
+// Update listening status every 15 seconds
+setInterval(updateListeningStatuses, 15 * 1000);
+
+// =====================
 // Start Server
 // =====================
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Server in esecuzione su http://localhost:${port}`);
   console.log(`Swagger UI disponibile su http://localhost:${port}/api-docs`);
 });
