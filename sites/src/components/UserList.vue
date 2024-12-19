@@ -1,14 +1,11 @@
-<!-- src/components/UserList.vue -->
 <template>
   <div class="userlist-container">
     <div class="userlist-card">
-      <!-- Sezione Intestazione con Layout Responsivo -->
       <div class="header-section">
         <h2 class="title">Lista Utenti</h2>
         <button class="filter-button" @click="logout">Logout</button>
       </div>
 
-      <!-- Sezione di Filtro -->
       <div class="filters">
         <h3 class="subtitle">Filtra Utenti</h3>
         <form @submit.prevent="applicaFiltri">
@@ -17,7 +14,7 @@
               <label for="position">Posizione:</label>
               <input
                 id="position"
-                v-model="filtri.Posizione"
+                v-model="filtri.Position"
                 placeholder="es. Bergamo"
                 class="cute-input"
               />
@@ -27,7 +24,7 @@
               <input
                 type="date"
                 id="dateBorn"
-                v-model="filtri.DataNascita"
+                v-model="filtri.DateBorn"
                 class="cute-input"
               />
             </div>
@@ -41,7 +38,7 @@
         </form>
       </div>
 
-      <!-- Card Utenti Mobile -->
+      <!-- Mobile Cards -->
       <div class="user-cards-mobile">
         <div
           v-for="utente in utentiFiltrati"
@@ -69,13 +66,28 @@
           </div>
           <div class="user-card-content">
             <p><strong>Email Spotify:</strong> {{ utente.emailSpotify }}</p>
-            <p><strong>Posizione:</strong> {{ utente.Posizione }}</p>
-            <p><strong>Data di Nascita:</strong> {{ utente.DataNascita }}</p>
+            <p><strong>Posizione:</strong> {{ utente.Position }}</p>
+            <p><strong>Data di Nascita:</strong> {{ utente.DateBorn }}</p>
+            <p class="status-line">
+              <strong>Status:</strong>
+              <span v-if="getUserStatus(utente.id).online" class="status-indicator online"></span>
+              <span v-else class="status-indicator offline"></span>
+              <span v-if="getUserStatus(utente.id).online">Online</span>
+              <span v-else>Offline</span>
+            </p>
+            <div v-if="getUserStatus(utente.id).listening" class="listening-container">
+              <strong><i class="fas fa-headphones"></i> Listening to:</strong> 
+              <span class="listening-text">
+                {{ getUserStatus(utente.id).listening.trackName }} by {{ getUserStatus(utente.id).listening.artists }}
+              </span>
+            </div>
+            <!-- If no track is playing, show blank space -->
+            <div v-else style="min-height: 20px;"></div>
           </div>
         </div>
       </div>
 
-      <!-- Tabella Desktop -->
+      <!-- Desktop Table -->
       <div class="table-responsive desktop-only">
         <table class="user-table">
           <thead>
@@ -84,6 +96,8 @@
               <th>Email Spotify</th>
               <th>Posizione</th>
               <th>Data di Nascita</th>
+              <th>Status</th>
+              <th>Listening</th>
               <th>Azioni</th>
             </tr>
           </thead>
@@ -92,7 +106,23 @@
               <td>{{ utente.Username }}</td>
               <td>{{ utente.emailSpotify }}</td>
               <td>{{ utente.Position }}</td>
-              <td>{{ utente.DataNascita }}</td>
+              <td>{{ utente.DateBorn }}</td>
+              <td>
+                <span class="status-line">
+                  <span v-if="getUserStatus(utente.id).online" class="status-indicator online"></span>
+                  <span v-else class="status-indicator offline"></span>
+                  <span v-if="getUserStatus(utente.id).online">Online</span>
+                  <span v-else>Offline</span>
+                </span>
+              </td>
+              <td>
+                <div v-if="getUserStatus(utente.id).listening" class="listening-container">
+                  <strong><i class="fas fa-headphones"></i> </strong>
+                  <span class="listening-text">
+                    {{ getUserStatus(utente.id).listening.trackName }} by {{ getUserStatus(utente.id).listening.artists }}
+                  </span>
+                </div>
+              </td>
               <td>
                 <button
                   v-if="puòModificare(utente)"
@@ -114,7 +144,7 @@
         </table>
       </div>
 
-      <!-- Sezione Preferiti -->
+      <!-- Favorite Tracks -->
       <div class="favorite-tracks-section">
         <h3 class="subtitle">Brani Preferiti</h3>
         <div class="favorites-grid">
@@ -139,7 +169,7 @@
         </div>
       </div>
 
-      <!-- Modal di Modifica Utente -->
+      <!-- Modal Edit User -->
       <div v-if="mostraModaleModifica" class="modal">
         <div class="modal-content">
           <span class="close" @click="chiudiModale">&times;</span>
@@ -167,7 +197,7 @@
                 <label for="editPosition">Posizione:</label>
                 <input
                   id="editPosition"
-                  v-model="utenteModificabile.Posizione"
+                  v-model="utenteModificabile.Position"
                   class="cute-input"
                 />
               </div>
@@ -186,7 +216,7 @@
                 <input
                   id="editDateBorn"
                   type="date"
-                  v-model="utenteModificabile.DataNascita"
+                  v-model="utenteModificabile.DateBorn"
                   class="cute-input"
                 />
               </div>
@@ -212,57 +242,60 @@ export default {
       mostraModaleModifica: false,
       utenteModificabile: {},
       filtri: {
-        Posizione: "",
-        DataNascita: "",
+        Position: "",
+        DateBorn: "",
       },
-      favorites: [], // Nuova proprietà per i brani preferiti
-      userId: null, // Aggiunto per garantire che userId sia definito
+      favorites: [],
+      userId: null,
+      statuses: []
     };
   },
   methods: {
-    // Verifica se l'utente può modificare
-    puòModificare(utente) {
-      return utente.id === this.userData?.userId;
+    async getUserData() {
+      try {
+        const response = await axios.get('http://37.27.206.153:3000/auth/me', {
+          withCredentials: true
+        });
+        this.userData = response.data;
+        this.userId = this.userData.userId.toString();
+      } catch (error) {
+        console.error("Errore nel recupero dei dati utente:", error);
+        this.$router.push("/");
+      }
     },
-    // Verifica se l'utente può cancellare
-    puòCancellare(utente) {
-      return utente.id === this.userData?.userId;
-    },
-    // Recupera gli utenti
     async recuperaUtenti() {
       try {
-        this.userId = localStorage.getItem("userId");
-
-        // Recupera tutti gli utenti
         const response = await axios.get("http://37.27.206.153:3000/users", {
           headers: {
             userId: this.userId,
           },
+          withCredentials: true
         });
-
         this.utenti = response.data;
-        this.utentiFiltrati = this.utenti; // Inizializza utentiFiltrati
+        this.utentiFiltrati = this.utenti;
       } catch (error) {
         console.error("Errore nel recupero degli utenti:", error);
         alert("Impossibile recuperare gli utenti.");
       }
     },
-    // Modifica un utente
+    puòModificare(utente) {
+      return utente.id === this.userData?.userId;
+    },
+    puòCancellare(utente) {
+      return utente.id === this.userData?.userId;
+    },
     modificaUtente(utente) {
       if (this.puòModificare(utente)) {
-        // Clona l'oggetto utente per evitare di mutare i dati originali
         this.utenteModificabile = { ...utente };
         this.mostraModaleModifica = true;
       } else {
         alert("Non hai i permessi per modificare questo utente.");
       }
     },
-    // Chiudi il modal
     chiudiModale() {
       this.mostraModaleModifica = false;
       this.utenteModificabile = {};
     },
-    // Aggiorna un utente
     async aggiornaUtente() {
       try {
         await axios.put(
@@ -270,36 +303,30 @@ export default {
           {
             Username: this.utenteModificabile.Username,
             emailSpotify: this.utenteModificabile.emailSpotify,
-            Posizione: this.utenteModificabile.Posizione,
+            Position: this.utenteModificabile.Position,
             Password: this.utenteModificabile.Password,
-            DataNascita: this.utenteModificabile.DataNascita,
+            DateBorn: this.utenteModificabile.DateBorn,
           },
           {
             headers: {
               userId: this.userId,
             },
+            withCredentials: true
           }
         );
 
         alert("Utente aggiornato con successo.");
         this.chiudiModale();
-        this.recuperaUtenti(); // Aggiorna la lista degli utenti
+        this.recuperaUtenti();
       } catch (error) {
         console.error("Errore nell'aggiornamento dell'utente:", error);
-        if (
-          error.response &&
-          error.response.data &&
-          error.response.data.message
-        ) {
-          alert(
-            `Impossibile aggiornare l'utente: ${error.response.data.message}`
-          );
+        if (error.response && error.response.data && error.response.data.message) {
+          alert(`Impossibile aggiornare l'utente: ${error.response.data.message}`);
         } else {
           alert(`Impossibile aggiornare l'utente: ${error.message}`);
         }
       }
     },
-    // Cancella un utente
     async cancellaUtente(id) {
       if (!confirm(`Sei sicuro di voler eliminare il tuo account?`)) {
         return;
@@ -310,34 +337,25 @@ export default {
           headers: {
             userId: this.userId,
           },
+          withCredentials: true
         });
 
-        // Verifica se l'utente eliminato è se stesso
         if (id === parseInt(this.userId)) {
-          alert(
-            "Il tuo account è stato eliminato. Effettua il login di nuovo."
-          );
-          this.logout(); // Esegui il logout e reindirizza alla pagina di login
+          alert("Il tuo account è stato eliminato. Effettua il login di nuovo.");
+          this.logout();
         } else {
           alert(`Utente con ID "${id}" eliminato con successo.`);
-          this.recuperaUtenti(); // Aggiorna la lista degli utenti
+          this.recuperaUtenti();
         }
       } catch (error) {
         console.error("Errore nell'eliminazione dell'utente:", error);
-        if (
-          error.response &&
-          error.response.data &&
-          error.response.data.message
-        ) {
-          alert(
-            `Impossibile eliminare l'utente: ${error.response.data.message}`
-          );
+        if (error.response && error.response.data && error.response.data.message) {
+          alert(`Impossibile eliminare l'utente: ${error.response.data.message}`);
         } else {
           alert(`Impossibile eliminare l'utente: ${error.message}`);
         }
       }
     },
-    // Logout
     async logout() {
       try {
         await axios.post('http://37.27.206.153:3000/logout', {}, {
@@ -349,46 +367,37 @@ export default {
         alert("Errore durante il logout.");
       }
     },
-    // Applica i filtri
     applicaFiltri() {
       this.utentiFiltrati = this.utenti.filter((utente) => {
-        const corrispondePosizione = this.filtri.Posizione
-          ? utente.Posizione.toLowerCase().includes(
-              this.filtri.Posizione.toLowerCase()
+        const corrispondePosizione = this.filtri.Position
+          ? utente.Position.toLowerCase().includes(
+              this.filtri.Position.toLowerCase()
             )
           : true;
-        const corrispondeDataNascita = this.filtri.DataNascita
-          ? utente.DataNascita === this.filtri.DataNascita
+        const corrispondeDataNascita = this.filtri.DateBorn
+          ? utente.DateBorn === this.filtri.DateBorn
           : true;
         return corrispondePosizione && corrispondeDataNascita;
       });
     },
-    // Resetta i filtri
     resettaFiltri() {
-      this.filtri.Posizione = "";
-      this.filtri.DataNascita = "";
+      this.filtri.Position = "";
+      this.filtri.DateBorn = "";
       this.utentiFiltrati = this.utenti;
     },
-
-    // Recupera i brani preferiti
     favorite() {
       axios
         .get("http://37.27.206.153:3000/favorites", {
-          withCredentials: true, // Include cookies
+          withCredentials: true
         })
         .then((response) => {
-          console.log("Top Tracks:", response.data);
-          // Salva i brani preferiti nella proprietà favorites
           this.favorites = response.data;
-          console.log("Favorites:", this.favorites);
         })
         .catch((error) => {
           console.error("Errore nel recupero dei brani preferiti:", error);
           alert("Errore nel recupero dei brani preferiti.");
         });
     },
-
-    // Apre il brano su Spotify
     openSpotifyTrack(track) {
       if (track && track.external_urls && track.external_urls.spotify) {
         window.open(track.external_urls.spotify, "_blank");
@@ -396,36 +405,52 @@ export default {
         alert("Link Spotify non disponibile per questo brano.");
       }
     },
-
-    // Ottiene i nomi degli artisti concatenati
     getArtistNames(artists) {
       if (!artists || artists.length === 0) return "Artista sconosciuto";
       return artists.map(artist => artist.name).join(", ");
     },
+    getUserStatus(userId) {
+      const status = this.statuses.find(s => s.userId == userId);
+      return status || {};
+    },
+    setupWebSocket() {
+      const ws = new WebSocket('ws://37.27.206.153:3000'); 
 
-    // Recupera i dati dell'utente
-    async getUserData() {
-      try {
-        const response = await axios.get('http://37.27.206.153:3000/auth/me', {
-          withCredentials: true
-        });
-        this.userData = response.data;
-      } catch (error) {
-        console.error("Errore nel recupero dei dati utente:", error);
-        this.$router.push("/");
-      }
+      ws.onopen = () => {
+        console.log('WebSocket connection established.');
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'status_update') {
+          this.statuses = data.data;
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket connection closed. Reconnecting in 5s...');
+        setTimeout(() => this.setupWebSocket(), 5000);
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+
+      this.ws = ws;
     },
   },
   mounted() {
-    this.getUserData();
-    this.recuperaUtenti();
-    this.favorite();
+    this.getUserData().then(() => {
+      this.recuperaUtenti();
+      this.favorite();
+      this.setupWebSocket();
+    });
   },
 };
 </script>
 
 <style scoped>
-/* Applica box-sizing globalmente all'interno di questo componente */
+/* Applica box-sizing globalmente */
 *,
 *::before,
 *::after {
@@ -437,22 +462,20 @@ export default {
   padding: 20px;
 }
 
-/* Spaziatura della Card */
 .userlist-card {
   background-color: #ffffff;
   padding: 30px;
   border-radius: 16px;
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
-  margin: 20px 0; /* Margine aumentato per più distanza */
+  margin: 20px 0;
 }
 
-/* Sezione Intestazione */
 .header-section {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 30px; /* Spaziatura aumentata tra gli elementi dell'intestazione */
-  margin-bottom: 40px; /* Margine inferiore aumentato */
+  gap: 30px;
+  margin-bottom: 40px;
 }
 
 .title {
@@ -462,7 +485,7 @@ export default {
 
 /* Sezione Filtri */
 .filters {
-  margin-bottom: 40px; /* Margine inferiore aumentato */
+  margin-bottom: 40px;
 }
 
 .subtitle {
@@ -470,96 +493,141 @@ export default {
   margin-bottom: 20px;
 }
 
-/* Griglia dei Filtri */
 .filters-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 30px; /* Spaziatura aumentata tra gli input dei filtri */
+  gap: 30px;
   margin-bottom: 20px;
 }
 
-/* Griglia del Modal */
 .modal-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 30px; /* Spaziatura aumentata tra gli input del modal */
+  gap: 30px;
 }
 
-/* Card Utenti Mobile */
+/* Utenti Mobile */
 .user-cards-mobile {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 30px; /* Spaziatura aumentata tra le card degli utenti */
-  margin-bottom: 40px; /* Margine inferiore aumentato */
+  gap: 30px;
+  margin-bottom: 40px;
 }
 
-/* Stile della Card Utente */
+/* Card Utente */
 .user-card {
-  background-color: #fdfdfd; /* Sfondo leggermente diverso per contrasto */
+  background-color: #fdfdfd;
   border: 1px solid #e0e0e0;
-  border-radius: 16px; /* Raggio del bordo aumentato per un aspetto più gradevole */
-  padding: 25px; /* Padding aumentato per una sensazione più spaziosa */
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.05); /* Ombra più morbida */
-  transition: transform 0.3s ease, box-shadow 0.3s ease; /* Effetto hover migliorato */
+  border-radius: 16px;
+  padding: 25px;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .user-card:hover {
-  transform: translateY(-6px); /* Sollevamento leggermente maggiore al passaggio del mouse */
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1); /* Ombra migliorata al passaggio del mouse */
+  transform: translateY(-6px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
 }
 
 .user-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px; /* Margine aumentato */
+  margin-bottom: 20px;
   flex-wrap: wrap;
-  gap: 20px; /* Spaziatura aumentata */
+  gap: 20px;
 }
 
 .user-card-content {
   display: grid;
-  gap: 15px; /* Spaziatura aumentata tra il contenuto della card */
+  gap: 15px;
 }
 
 .user-card-content p {
   margin: 0;
-  font-size: 16px; /* Dimensione del carattere aumentata per una migliore leggibilità */
+  font-size: 16px;
+}
+
+/* Status Indicator */
+.status-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-indicator.online {
+  background-color: #2ecc71; /* Green */
+}
+
+.status-indicator.offline {
+  background-color: #e74c3c; /* Red */
+}
+
+/* Listening Container */
+.listening-container {
+  display: inline-block;
+  background-color: #e8f7ff;
+  border: 1px solid #b2dff0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: 5px;
+  animation: fadeIn 0.6s ease;
+}
+
+.listening-container i {
+  margin-right: 5px;
+  color: #3498db;
+}
+
+.listening-text {
+  font-weight: 500;
+}
+
+/* Keyframes for fade-in animation */
+@keyframes fadeIn {
+  0% { opacity: 0; transform: translateY(-4px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 /* Azioni Utente */
 .user-actions {
   display: flex;
-  gap: 20px; /* Spaziatura aumentata tra i pulsanti */
+  gap: 20px;
 }
 
-/* Pulsanti di Azione */
 .action-button {
   background-color: #ffda79;
   border: none;
-  padding: 12px 20px; /* Padding aumentato */
-  border-radius: 10px; /* Angoli arrotondati */
+  padding: 12px 20px;
+  border-radius: 10px;
   cursor: pointer;
-  font-size: 16px; /* Dimensione del carattere aumentata */
+  font-size: 16px;
   transition: background-color 0.3s ease;
 }
 
 .action-button:hover {
-  background-color: #ffcc66; /* Leggero cambiamento del colore al passaggio del mouse */
+  background-color: #ffcc66;
 }
 
 .delete-button {
-  background-color: #ff6b6b; /* Colore brillante per il pulsante di cancellazione */
+  background-color: #ff6b6b;
   color: white;
 }
 
 .delete-button:hover {
-  background-color: #ff4d4d; /* Leggero cambiamento del colore al passaggio del mouse */
+  background-color: #ff4d4d;
 }
 
 /* Tabella Desktop */
 .table-responsive {
-  margin-bottom: 40px; /* Margine inferiore aumentato */
+  margin-bottom: 40px;
 }
 
 .user-table {
@@ -634,7 +702,7 @@ export default {
   font-size: 14px;
 }
 
-/* Stile del Modal */
+/* Modal */
 .modal {
   position: fixed;
   top: 0;
@@ -673,7 +741,6 @@ export default {
   font-size: 22px;
 }
 
-/* Pulsanti del Modal */
 .modal-button {
   background-color: #8e44ad;
   color: #ffffff;
@@ -687,81 +754,74 @@ export default {
 }
 
 .modal-button:hover {
-  background-color: #85c1e9; /* Effetto hover per il pulsante del modal */
+  background-color: #85c1e9;
 }
 
-/* Stili degli Input Carini */
+/* Input Stili */
 .cute-input {
   width: 100%;
-  max-width: 100%; /* Garantisce che gli input non superino il loro contenitore */
-  padding: 12px 16px; /* Padding aumentato */
+  max-width: 100%;
+  padding: 12px 16px;
   border: 1px solid #ccc;
-  border-radius: 12px; /* Angoli arrotondati */
-  font-size: 16px; /* Dimensione del carattere aumentata */
+  border-radius: 12px;
+  font-size: 16px;
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
-  background-color: #fafafa; /* Sfondo chiaro per una migliore estetica */
+  background-color: #fafafa;
 }
 
 .cute-input:focus {
   border-color: #8e44ad;
-  box-shadow: 0 0 8px rgba(163, 212, 247, 0.5); /* Ombra sottile al focus */
+  box-shadow: 0 0 8px rgba(163, 212, 247, 0.5);
   outline: none;
 }
 
-/* Pulsanti dei Filtri */
+/* Pulsanti Filtri */
 .filter-buttons {
   display: flex;
-  gap: 30px; /* Spazio aumentato tra i pulsanti */
-  margin-top: 20px; /* Margine superiore aggiunto */
+  gap: 30px;
+  margin-top: 20px;
 }
 
 .filter-button {
   background-color: #8e44ad;
   color: #ffffff;
-  padding: 12px 24px; /* Padding aumentato */
+  padding: 12px 24px;
   border: none;
-  border-radius: 12px; /* Angoli arrotondati */
-  font-size: 16px; /* Dimensione del carattere aumentata */
+  border-radius: 12px;
+  font-size: 16px;
   cursor: pointer;
   transition: background-color 0.3s ease;
 }
 
 .filter-button:hover {
-  background-color: #85c1e9; /* Effetto hover per i pulsanti dei filtri */
+  background-color: #85c1e9;
 }
 
-/* Nascondi la tabella desktop su mobile */
+/* Responsive */
 .desktop-only {
   display: none;
 }
 
-/* Regolazioni Responsive */
-
-/* Tablet e schermi più grandi */
 @media (min-width: 768px) {
   .header-section {
     flex-direction: row;
     justify-content: space-between;
-    gap: 40px; /* Spaziatura aumentata per schermi più grandi */
+    gap: 40px;
   }
 
   .filters-grid {
     grid-template-columns: repeat(2, 1fr);
-    gap: 30px; /* Spaziatura consistente */
   }
 
   .modal-grid {
     grid-template-columns: repeat(2, 1fr);
-    gap: 30px;
   }
 
   .user-cards-mobile {
     grid-template-columns: repeat(2, 1fr);
-    gap: 30px;
   }
 }
 
-/* Schermi Desktop */
 @media (min-width: 1024px) {
   .user-cards-mobile {
     display: none;
@@ -773,25 +833,23 @@ export default {
 
   .modal-grid {
     grid-template-columns: repeat(3, 1fr);
-    gap: 30px;
   }
 }
 
-/* Altre regolazioni responsive */
 @media (max-width: 480px) {
   .userlist-card {
-    padding: 20px; /* Padding ridotto per schermi più piccoli */
+    padding: 20px;
   }
 
   .filter-buttons {
     flex-direction: column;
     width: 100%;
-    gap: 20px; /* Spaziatura aumentata per una migliore distribuzione */
+    gap: 20px;
   }
 
   .filter-button {
     width: 100%;
-    padding: 12px 24px; /* Padding aumentato */
+    padding: 12px 24px;
   }
 
   .modal-content {
@@ -801,10 +859,9 @@ export default {
   }
 
   .input-group input {
-    padding: 12px 16px; /* Padding aumentato per i campi di input */
+    padding: 12px 16px;
   }
 
-  /* Regola la sezione dei brani preferiti su mobile */
   .favorite-tracks-section {
     margin-bottom: 20px;
   }
