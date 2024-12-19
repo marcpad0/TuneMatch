@@ -6,17 +6,22 @@ const passport = require('passport');
 const SpotifyStrategy = require('passport-spotify').Strategy;
 const session = require('express-session');
 const fetch = require('node-fetch');
-const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const { swaggerUi, swaggerDocs } = require('./swagger');
 const dotenv = require('dotenv');
 const http = require('http');
 const { Server } = require('ws'); // WebSocket server
+const path = require('path');
 
+// Load environment variables
 dotenv.config();
 
+// Select Database Implementation
+const USE_MOCK_DB = process.env.USE_MOCK_DB === 'true';
+const db = USE_MOCK_DB ? require('./dbmock') : require('./db');
+
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 // =====================
 // Spotify Configuration
@@ -36,12 +41,12 @@ if (!CLIENT_ID || !CLIENT_SECRET || !CALLBACK_URL) {
 app.use(express.json());
 
 app.use(cors({
-  origin: 'http://37.27.206.153:8080', // Frontend origin
+  origin: process.env.FRONTEND_ORIGIN || 'http://37.27.206.153:8080', // Frontend origin
   credentials: true,
 }));
 
 app.use(session({
-  secret: 'your-secret-key', // Replace with a strong secret in production
+  secret: process.env.SESSION_SECRET || 'your-secret-key', // Use strong secret in production
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -55,45 +60,6 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // =====================
-// Databases Initialization
-// =====================
-let dbtoken = new sqlite3.Database('./datatoken.db', (err) => {
-  if (err) {
-    console.error('Errore nella connessione al database token:', err.message);
-  } else {
-    console.log('Connesso al database SQLite per i token.');
-  }
-});
-
-dbtoken.run(`
-  CREATE TABLE IF NOT EXISTS token (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    emailSpotify TEXT,
-    token TEXT
-  )
-`);
-
-let db = new sqlite3.Database('./database.db', (err) => {
-  if (err) {
-    console.error('Errore nella connessione al database:', err.message);
-  } else {
-    console.log('Connesso al database SQLite principale.');
-  }
-});
-
-db.run(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    Username TEXT UNIQUE,
-    emailSpotify TEXT,
-    isAdmin INTEGER DEFAULT 0,
-    Position TEXT,
-    Password TEXT,
-    DateBorn TEXT
-  )
-`);
-
-// =====================
 // Passport Spotify Strategy
 // =====================
 passport.use(new SpotifyStrategy(
@@ -103,38 +69,39 @@ passport.use(new SpotifyStrategy(
     callbackURL: CALLBACK_URL,
     passReqToCallback: true,
   },
-  function (req, accessToken, refreshToken, expires_in, profile, done) {
+  async function (req, accessToken, refreshToken, expires_in, profile, done) {
+    console.log('Spotify Strategy Callback Invoked');
+    console.log('Access Token:', accessToken);
     const emailSpotify = (profile.emails && profile.emails[0]) ? profile.emails[0].value : '';
 
-    // Handle token database operations
-    dbtoken.serialize(() => {
-      dbtoken.run('DELETE FROM token WHERE emailSpotify = ?', [emailSpotify]);
-      dbtoken.run('INSERT INTO token (emailSpotify, token) VALUES (?, ?)', [emailSpotify, accessToken]);
-    });
+    try {
+      // Handle token database operations
+      await db.setTokenForUser(emailSpotify, accessToken);
 
-    // Check/create user
-    db.get('SELECT * FROM users WHERE emailSpotify = ?', [emailSpotify], (err, user) => {
-      if (err) return done(err);
-
+      // Check/Create user
+      let user = await db.getUserByEmailSpotify(emailSpotify);
       if (!user) {
         const username = profile.username || profile.displayName || `spotify_${Date.now()}`;
-        db.run(
-          'INSERT INTO users (Username, emailSpotify, isAdmin, Position, Password, DateBorn) VALUES (?, ?, ?, ?, ?, ?)',
-          [username, emailSpotify, 0, '', '', ''],
-          function (err) {
-            if (err) return done(err);
-            return done(null, {
-              id: this.lastID,
-              Username: username,
-              emailSpotify: emailSpotify,
-              isAdmin: 0
-            });
-          }
-        );
-      } else {
-        return done(null, user);
+        const newUserId = await db.createUser({
+          Username: username,
+          emailSpotify,
+          Position: '',
+          Password: '',
+          DateBorn: ''
+        });
+        user = await db.getUserById(newUserId);
       }
-    });
+
+      return done(null, {
+        id: user.id,
+        Username: user.Username,
+        emailSpotify: user.emailSpotify,
+        isAdmin: user.isAdmin
+      });
+    } catch (err) {
+      console.error('Error in Spotify Strategy:', err);
+      return done(new InternalOAuthError('failed to fetch user profile', err), null);
+    }
   }
 ));
 
@@ -142,11 +109,18 @@ passport.serializeUser((user, done) => {
   done(null, user.id);
 });
 
-passport.deserializeUser((id, done) => {
-  db.get('SELECT * FROM users WHERE id = ?', [id], (err, user) => {
-    if (err) return done(err);
+passport.deserializeUser(async (id, done) => {
+  console.log('Deserializing user with ID:', id);
+  try {
+    const user = await db.getUserById(id);
+    if (!user) {
+      return done(null, false); // or done(new Error("No user found"), null);
+    }
     done(null, user);
-  });
+  } catch (err) {
+    console.error('Error in deserializeUser:', err);
+    done(err, null);
+  }
 });
 
 // =====================
@@ -218,35 +192,27 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
  *         description: Errore del server
  */
 // Create user
-app.post('/users', (req, res) => {
+app.post('/users', async (req, res) => {
   const { Username, emailSpotify, Position, Password, DateBorn } = req.body;
 
   if (!Username || !Password) {
     return res.status(400).send({ message: 'Username e Password sono obbligatori.' });
   }
 
-  db.get('SELECT * FROM users WHERE Username = ?', [Username], (err, row) => {
-    if (err) {
-      console.error('Errore nel controllo del nome utente:', err.message);
-      return res.status(500).send({ message: 'Errore del server.' });
+  try {
+    const existingUser = await db.getUserByUsername(Username);
+    if (existingUser) {
+      return res.status(409).send({ message: 'Nome utente già in uso.' });
     }
 
-    if (row) {
-      return res.status(409).send({ message: 'Nome utente già in uso.' });
-    } else {
-      db.run(
-        'INSERT INTO users (Username, emailSpotify, isAdmin, Position, Password, DateBorn) VALUES (?, ?, ?, ?, ?, ?)',
-        [Username, emailSpotify || '', 0, Position || '', Password, DateBorn || ''],
-        function (err) {
-          if (err) {
-            console.error('Errore durante la registrazione:', err.message);
-            return res.status(500).send({ message: err.message });
-          }
-          res.send({ message: `Utente aggiunto con ID: ${this.lastID}` });
-        }
-      );
-    }
-  });
+    const newUserId = await db.createUser({ 
+      Username, emailSpotify, Position, Password, DateBorn 
+    });
+    res.send({ message: `Utente aggiunto con ID: ${newUserId}` });
+  } catch (err) {
+    console.error('Errore durante la registrazione:', err.message);
+    res.status(500).send({ message: err.message });
+  }
 });
 
 /**
@@ -280,17 +246,15 @@ app.post('/users', (req, res) => {
  *         description: Errore del server
  */
 // Login
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
   const { Username, Password } = req.body;
 
   if (!Username || !Password) {
     return res.status(400).send({ message: 'Username e Password sono obbligatori.' });
   }
 
-  db.get('SELECT * FROM users WHERE Username = ?', [Username], (err, user) => {
-    if (err) {
-      return res.status(500).send({ message: 'Errore del server.' });
-    }
+  try {
+    const user = await db.getUserByUsername(Username);
     if (!user || user.Password !== Password) {
       return res.status(401).send({ message: 'Credenziali non valide' });
     }
@@ -305,7 +269,10 @@ app.post('/login', (req, res) => {
     setUserOnline(user.id, true);
 
     res.send({ message: 'Login successful' });
-  });
+  } catch (err) {
+    console.error('Errore durante il login:', err.message);
+    res.status(500).send({ message: 'Errore del server.' });
+  }
 });
 
 /**
@@ -328,6 +295,7 @@ app.post('/logout', (req, res) => {
 
   req.session.destroy((err) => {
     if (err) {
+      console.error('Errore durante la distruzione della sessione:', err.message);
       return res.status(500).send({ message: 'Errore durante il logout.' });
     }
     res.clearCookie('connect.sid');
@@ -365,33 +333,16 @@ app.post('/logout', (req, res) => {
  *         description: Errore del server
  */
 // Get users with filters
-app.get('/users', (req, res) => {
+app.get('/users', async (req, res) => {
   const { Position, DateBorn } = req.query;
-  let query = 'SELECT * FROM users';
-  const conditions = [];
-  const params = [];
 
-  if (Position) {
-    conditions.push('Position LIKE ?');
-    params.push(`%${Position}%`); // Use LIKE with wildcards
+  try {
+    const usersList = await db.getUsers({ Position, DateBorn });
+    res.send(usersList);
+  } catch (err) {
+    console.error('Errore nel recupero utenti:', err.message);
+    res.status(500).send({ message: 'Errore del server.' });
   }
-
-  if (DateBorn) {
-    conditions.push('DateBorn = ?');
-    params.push(DateBorn);
-  }
-
-  if (conditions.length > 0) {
-    query += ' WHERE ' + conditions.join(' AND ');
-  }
-
-  db.all(query, params, (err, rows) => {
-    if (err) {
-      console.error('Errore nel recupero utenti:', err.message);
-      return res.status(500).send({ message: 'Errore del server.' });
-    }
-    res.send(rows);
-  });
 });
 
 /**
@@ -424,7 +375,7 @@ app.get('/users', (req, res) => {
  *         description: Errore del server
  */
 // Update user
-app.put('/users/:id', (req, res) => {
+app.put('/users/:id', async (req, res) => {
   const { Username, emailSpotify, Position, Password, DateBorn } = req.body;
   const { id } = req.params;
 
@@ -432,56 +383,35 @@ app.put('/users/:id', (req, res) => {
   const requesterId = req.headers['userid'];
 
   const userId = id.toString();
-  const reqId = requesterId.toString();
+  const reqId = requesterId ? requesterId.toString() : null;
 
   if (!isAdmin && reqId !== userId) {
     return res.status(403).send({ message: 'Forbidden: Cannot update other users' });
   }
 
-  let isAdminToSet = isAdmin ? 1 : 0;
+  try {
+    let isAdminToSet = isAdmin ? 1 : 0;
 
-  if (!isAdmin) {
-    db.get('SELECT isAdmin FROM users WHERE id = ?', [id], (err, row) => {
-      if (err) {
-        console.error('Errore nel recupero di isAdmin:', err.message);
-        return res.status(500).send({ message: 'Errore del server.' });
-      }
-      if (!row) {
+    if (!isAdmin) {
+      const existingUser = await db.getUserById(id);
+      if (!existingUser) {
         return res.status(404).send({ message: 'User not found' });
       }
+      isAdminToSet = existingUser.isAdmin;
+    }
 
-      isAdminToSet = row.isAdmin;
-
-      db.run(
-        'UPDATE users SET Username = ?, emailSpotify = ?, Position = ?, Password = ?, DateBorn = ?, isAdmin = ? WHERE id = ?',
-        [Username, emailSpotify || '', Position || '', Password, DateBorn || '', isAdminToSet, id],
-        function (err) {
-          if (err) {
-            console.error('Errore nell\'aggiornamento:', err.message);
-            return res.status(500).send({ message: err.message });
-          }
-          if (this.changes === 0) {
-            return res.status(404).send({ message: 'User not found' });
-          }
-          res.send({ message: `User updated with ID: ${id}` });
-        }
-      );
+    const changes = await db.updateUser(id, { 
+      Username, emailSpotify, Position, Password, DateBorn, isAdmin: isAdminToSet 
     });
-  } else {
-    db.run(
-      'UPDATE users SET Username = ?, emailSpotify = ?, Position = ?, Password = ?, DateBorn = ?, isAdmin = ? WHERE id = ?',
-      [Username, emailSpotify || '', Position || '', Password, DateBorn || '', isAdminToSet, id],
-      function (err) {
-        if (err) {
-          console.error('Errore nell\'aggiornamento:', err.message);
-          return res.status(500).send({ message: err.message });
-        }
-        if (this.changes === 0) {
-          return res.status(404).send({ message: 'User not found' });
-        }
-        res.send({ message: `User updated with ID: ${id}` });
-      }
-    );
+
+    if (changes === 0) {
+      return res.status(404).send({ message: 'User not found' });
+    }
+
+    res.send({ message: `User updated with ID: ${id}` });
+  } catch (err) {
+    console.error('Errore nell\'aggiornamento:', err.message);
+    res.status(500).send({ message: err.message });
   }
 });
 
@@ -509,29 +439,29 @@ app.put('/users/:id', (req, res) => {
  *         description: Errore del server
  */
 // Delete user
-app.delete('/users/:id', (req, res) => {
+app.delete('/users/:id', async (req, res) => {
   const { id } = req.params;
 
   const isAdmin = req.headers['isadmin'] === 'true';
   const requesterId = req.headers['userid'];
 
   const userId = id.toString();
-  const reqId = requesterId.toString();
+  const reqId = requesterId ? requesterId.toString() : null;
 
   if (!isAdmin && reqId !== userId) {
     return res.status(403).send({ message: 'Forbidden: Cannot delete other users' });
   }
 
-  db.run('DELETE FROM users WHERE id = ?', [id], function (err) {
-    if (err) {
-      console.error('Errore nella cancellazione:', err.message);
-      return res.status(500).send({ message: err.message });
-    }
-    if (this.changes === 0) {
+  try {
+    const changes = await db.deleteUser(id);
+    if (changes === 0) {
       return res.status(404).send({ message: 'User not found' });
     }
     res.send({ message: `User deleted with ID: ${id}` });
-  });
+  } catch (err) {
+    console.error('Errore nella cancellazione:', err.message);
+    res.status(500).send({ message: err.message });
+  }
 });
 
 // Spotify Auth
@@ -575,6 +505,7 @@ app.get('/auth/spotify/callback',
  *       401:
  *         description: Non autenticato
  */
+// Get Authenticated User Info
 app.get('/auth/me', (req, res) => {
   if (!req.isAuthenticated()) {
     return res.status(401).send({ message: 'Not authenticated' });
@@ -588,7 +519,7 @@ app.get('/auth/me', (req, res) => {
 
 app.get('/login/spotify', (req, res) => {
   if (req.isAuthenticated()) {
-    return res.redirect('http://37.27.206.153:8080/auth/callback');
+    return res.redirect(process.env.FRONTEND_CALLBACK_URL || 'http://37.27.206.153:8080/auth/callback');
   }
   res.redirect('/auth/spotify');
 });
@@ -609,31 +540,40 @@ app.get('/login/spotify', (req, res) => {
  *       500:
  *         description: Errore del server
  */
+// Get User's Favorite Tracks from Spotify
 app.get('/favorites', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).send('Non autenticato');
 
   const emailSpotify = req.user.emailSpotify;
   try {
-    const row = await new Promise((resolve, reject) => {
-      dbtoken.get('SELECT * FROM token WHERE emailSpotify = ?', [emailSpotify], (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
+    const row = await db.getTokenByEmail(emailSpotify);
 
     if (!row || !row.token) {
       return res.status(400).send('Access Token non disponibile');
     }
 
     const accessToken = row.token;
+    let allTracks = [];
+    let url = 'https://api.spotify.com/v1/me/top/tracks?limit=50';
 
-    const response = await fetch('https://api.spotify.com/v1/me/top/tracks', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    const data = await response.json();
+    // Fetch all pages
+    while (url) {
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
 
-    const tracks = data.items || [];
-    res.json(tracks);
+      if (!response.ok) {
+        console.error('Spotify API Error:', response.statusText);
+        return res.status(500).send('Errore nel recupero delle tracce da Spotify');
+      }
+
+      const data = await response.json();
+      allTracks = [...allTracks, ...data.items];
+      url = data.next; // Will be null when no more pages
+    }
+
+    console.log(`Total tracks fetched: ${allTracks.length}`);
+    res.json(allTracks);
 
   } catch (error) {
     console.error('Errore:', error);
@@ -653,6 +593,7 @@ app.get('/favorites', async (req, res) => {
  *       500:
  *         description: Errore del server
  */
+// Check Session Status
 app.get('/auth/check-session', (req, res) => {
   res.json({
     authenticated: req.session.authenticated === true,
@@ -678,21 +619,9 @@ app.use('/users', (req, res, next) => {
  *       200:
  *         description: Messaggio di benvenuto
  */
+// Home Route
 app.get('/', (req, res) => {
   res.send('Benvenuto al server Express!');
-});
-
-// =====================
-// Shutdown Handling
-// =====================
-process.on('SIGINT', () => {
-  db.close((err) => {
-    if (err) {
-      console.error('Errore nella chiusura del database:', err.message);
-    }
-    console.log('Connessione al database chiusa.');
-    process.exit(0);
-  });
 });
 
 // =====================
@@ -747,62 +676,50 @@ function setUserListening(userId, listeningInfo) {
   broadcastUserStatuses();
 }
 
-
 async function updateListeningStatuses() {
   try {
-    dbtoken.all('SELECT emailSpotify, token FROM token', async (err, rows) => {
-      if (err) {
-        console.error('Error fetching tokens:', err);
-        return;
-      }
+    const rows = USE_MOCK_DB ? await db.getAllTokens() : await db.getAllTokens(); // Adjust if needed
 
-      for (const row of rows) {
-        const emailSpotify = row.emailSpotify;
-        const accessToken = row.token;
+    for (const row of rows) {
+      const emailSpotify = row.emailSpotify;
+      const accessToken = row.token;
 
-        const user = await new Promise((resolve, reject) => {
-          db.get('SELECT id FROM users WHERE emailSpotify = ?', [emailSpotify], (err, user) => {
-            if (err) reject(err);
-            else resolve(user);
-          });
+      const user = await db.getUserByEmailSpotify(emailSpotify);
+      if (!user) continue;
+
+      try {
+        const response = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
+          headers: { Authorization: `Bearer ${accessToken}` },
         });
 
-        if (!user) continue;
-
-        try {
-          const response = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
-          
-          if (response.status === 200) {
-            const data = await response.json();
-            if (data && data.item) {
-              const listeningInfo = {
-                trackName: data.item.name,
-                artists: data.item.artists.map(a => a.name).join(', '),
-                album: data.item.album.name,
-                trackUrl: data.item.external_urls.spotify
-              };
-              setUserListening(user.id, listeningInfo);
-            } else {
-              // Not currently playing anything
-              if (usersStatus[user.id]) {
-                usersStatus[user.id].listening = null;
-              }
-            }
+        if (response.status === 200) {
+          const data = await response.json();
+          if (data && data.item) {
+            const listeningInfo = {
+              trackName: data.item.name,
+              artists: data.item.artists.map(a => a.name).join(', '),
+              album: data.item.album.name,
+              trackUrl: data.item.external_urls.spotify
+            };
+            setUserListening(user.id, listeningInfo);
           } else {
-            // No access or not currently playing
+            // Not currently playing anything
             if (usersStatus[user.id]) {
               usersStatus[user.id].listening = null;
             }
           }
-        } catch (error) {
-          console.error('Error updating listening status for user', user.id, error);
+        } else {
+          // No access or not currently playing
+          if (usersStatus[user.id]) {
+            usersStatus[user.id].listening = null;
+          }
         }
+      } catch (error) {
+        console.error('Error updating listening status for user', user.id, error);
       }
+    }
 
-      broadcastUserStatuses();
-    });
+    broadcastUserStatuses();
   } catch (error) {
     console.error('Error updating listening statuses:', error);
   }
