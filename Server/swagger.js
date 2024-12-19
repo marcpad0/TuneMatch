@@ -11,7 +11,7 @@ const swaggerOptions = {
             version: '1.0.0',
             description: 'API for managing users with registration, login, and CRUD operations',
             contact: {
-                name: 'Your Name',
+                name: 'Marco',
                 email: 'your.email@example.com',
             },
             servers: [
