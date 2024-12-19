@@ -429,7 +429,6 @@ export default {
         })
         .catch((error) => {
           console.error("Errore nel recupero dei brani preferiti:", error);
-          alert("Errore nel recupero dei brani preferiti.");
         });
     },
     openSpotifyTrack(track) {

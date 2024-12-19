@@ -57,6 +57,7 @@ import axios from 'axios';
 router.beforeEach(async (to, from, next) => {
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
   const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin);
+  const isAuthPage = to.name === 'login' || to.name === 'register'; // Check for auth pages
 
   try {
     const response = await axios.get('http://37.27.206.153:3000/auth/check-session', {
@@ -70,7 +71,8 @@ router.beforeEach(async (to, from, next) => {
       next({ name: 'login' });
     } else if (requiresAdmin && !isAdmin) {
       next({ name: 'userlist' });
-    } else if (to.name === 'login' && isAuthenticated) {
+    } else if (isAuthPage && isAuthenticated) {
+      // Redirect authenticated users away from login/register pages
       next({ name: isAdmin ? 'admin' : 'userlist' });
     } else {
       next();
