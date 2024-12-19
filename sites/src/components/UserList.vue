@@ -91,7 +91,7 @@
             <tr v-for="utente in utentiFiltrati" :key="utente.id">
               <td>{{ utente.Username }}</td>
               <td>{{ utente.emailSpotify }}</td>
-              <td>{{ utente.Posizione }}</td>
+              <td>{{ utente.Position }}</td>
               <td>{{ utente.DataNascita }}</td>
               <td>
                 <button

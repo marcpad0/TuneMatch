@@ -4,6 +4,7 @@ import Register from '../components/todo-item.vue';
 import Login from '../components/todo-item2.vue';
 import UserList from '../components/UserList.vue';
 import AuthCallback from '../components/AuthCallback.vue'; // Import the new component
+import AdminPage from '../components/AdminPage.vue';
 
 const routes = [
   {
@@ -32,6 +33,15 @@ const routes = [
     path: '/:pathMatch(.*)*',
     redirect: '/',
   },
+  {
+    path: '/admin',
+    name: 'admin',
+    component: AdminPage,
+    meta: { 
+      requiresAuth: true,
+      requiresAdmin: true 
+    }
+  }
 ];
 
 const router = createRouter({
@@ -42,8 +52,11 @@ const router = createRouter({
 import axios from 'axios';
 
 // Route Guard
+// src/router/index.js - Updated router guard section
+
 router.beforeEach(async (to, from, next) => {
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+  const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin);
 
   try {
     const response = await axios.get('http://37.27.206.153:3000/auth/check-session', {
@@ -51,18 +64,19 @@ router.beforeEach(async (to, from, next) => {
     });
     
     const isAuthenticated = response.data.authenticated;
+    const isAdmin = response.data.user?.isAdmin;
 
     if (requiresAuth && !isAuthenticated) {
       next({ name: 'login' });
+    } else if (requiresAdmin && !isAdmin) {
+      next({ name: 'userlist' });
     } else if (to.name === 'login' && isAuthenticated) {
-      next({ name: 'userlist' });
-    } else if (to.name === 'register' && isAuthenticated) {
-      next({ name: 'userlist' });
-    }
-    else {
+      next({ name: isAdmin ? 'admin' : 'userlist' });
+    } else {
       next();
     }
   } catch (error) {
+    console.error('Auth check error:', error);
     if (requiresAuth) {
       next({ name: 'login' });
     } else {
