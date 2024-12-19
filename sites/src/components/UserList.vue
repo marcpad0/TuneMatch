@@ -265,13 +265,28 @@ export default {
     },
     async recuperaUtenti() {
       try {
-        const response = await axios.get("http://37.27.206.153:3000/users", {
-          headers: {
-            userId: this.userId,
-          },
-          withCredentials: true
+        const response = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('GET', 'http://37.27.206.153:3000/users', true);
+          xhr.withCredentials = true;
+          xhr.setRequestHeader('userId', this.userId);
+          
+          xhr.onload = function() {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve(JSON.parse(xhr.responseText));
+            } else {
+              reject(new Error(xhr.statusText));
+            }
+          };
+          
+          xhr.onerror = function() {
+            reject(new Error('Network Error'));
+          };
+          
+          xhr.send();
         });
-        this.utenti = response.data;
+    
+        this.utenti = response;
         this.utentiFiltrati = this.utenti;
       } catch (error) {
         console.error("Errore nel recupero degli utenti:", error);
@@ -368,17 +383,36 @@ export default {
       }
     },
     applicaFiltri() {
-      this.utentiFiltrati = this.utenti.filter((utente) => {
-        const corrispondePosizione = this.filtri.Position
-          ? utente.Position.toLowerCase().includes(
-              this.filtri.Position.toLowerCase()
-            )
-          : true;
-        const corrispondeDataNascita = this.filtri.DateBorn
-          ? utente.DateBorn === this.filtri.DateBorn
-          : true;
-        return corrispondePosizione && corrispondeDataNascita;
-      });
+      const xhr = new XMLHttpRequest();
+      const queryParams = new URLSearchParams();
+      
+      if (this.filtri.Position) {
+        queryParams.append('Position', this.filtri.Position);
+      }
+      
+      if (this.filtri.DateBorn) {
+        queryParams.append('DateBorn', this.filtri.DateBorn);
+      }
+      
+      xhr.open('GET', `http://37.27.206.153:3000/users?${queryParams.toString()}`, true);
+      xhr.withCredentials = true;
+      xhr.setRequestHeader('userId', this.userId);
+      
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          this.utentiFiltrati = JSON.parse(xhr.responseText);
+        } else {
+          console.error('Error applying filters:', xhr.statusText);
+          alert('Errore durante l\'applicazione dei filtri.');
+        }
+      };
+      
+      xhr.onerror = () => {
+        console.error('Request failed');
+        alert('Errore di rete durante l\'applicazione dei filtri.');
+      };
+      
+      xhr.send();
     },
     resettaFiltri() {
       this.filtri.Position = "";
