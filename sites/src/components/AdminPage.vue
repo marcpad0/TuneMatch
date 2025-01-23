@@ -24,6 +24,8 @@
           </div>
           <div class="user-card-content">
             <p><strong>Email Spotify:</strong> {{ user.emailSpotify }}</p>
+            <p><strong>Email Twitch:</strong> {{ user.emailTwitch }}</p>
+            <p><strong>Email Google:</strong> {{ user.emailGoogle }}</p>
             <p><strong>Position:</strong> {{ user.Position }}</p>
             <p><strong>Date Born:</strong> {{ formatDate(user.DateBorn) }}</p>
             <p><strong>Admin:</strong> {{ user.isAdmin ? 'Yes' : 'No' }}</p>

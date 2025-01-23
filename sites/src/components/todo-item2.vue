@@ -6,32 +6,36 @@
       <form @submit.prevent="loginUser">
         <div class="input-group">
           <label for="username">Username</label>
-          <input
-            id="username"
-            v-model="username"
-            type="text"
-            placeholder="Inserisci il tuo username"
-            required
-          />
+          <input id="username" v-model="username" type="text" placeholder="Inserisci il tuo username" required />
         </div>
         <div class="input-group">
           <label for="password">Password</label>
-          <input
-            id="password"
-            v-model="password"
-            type="password"
-            placeholder="Inserisci la tua password"
-            required
-          />
+          <input id="password" v-model="password" type="password" placeholder="Inserisci la tua password" required />
         </div>
         <button type="submit" class="login-button">Login</button>
       </form>
 
-            <!-- Pulsante per il login con Spotify -->
+      <!-- Pulsante per il login con Spotify -->
       <div class="spotify-login">
         <button @click="loginWithSpotify" class="spotify-button">
           <img src="../assets/spotify-logo.png" alt="Spotify Logo" />
           Accedi con Spotify
+        </button>
+      </div>
+
+      <!-- Add this after Spotify login button -->
+      <div class="Twitch-login">
+        <button @click="loginWithTwitch" class="Twitch-button">
+          <img src="../assets/twitch-logo.png" alt="Twitch Logo" />
+          Accedi con Twitch
+        </button>
+      </div>
+
+      <!-- Add this after Twitch login button -->
+      <div class="google-login">
+        <button @click="loginWithGoogle" class="google-button">
+          <img src="../assets/google-logo.png" alt="Google Logo" />
+          Accedi con Google
         </button>
       </div>
 
@@ -55,7 +59,7 @@ export default {
     };
   },
   methods: {
-        // Inside the loginUser method in todo-item2.vue
+    // Inside the loginUser method in todo-item2.vue
     async loginUser() {
       try {
         await axios.post("http://37.27.206.153:3000/login", {
@@ -64,7 +68,7 @@ export default {
         }, {
           withCredentials: true // Important for cookies
         });
-    
+
         // Redirect to UserList
         this.$router.push("/users");
       } catch (error) {
@@ -79,6 +83,12 @@ export default {
     loginWithSpotify() {
       window.location.href = "http://37.27.206.153:3000/login/spotify";
     },
+    loginWithTwitch() {
+      window.location.href = "http://37.27.206.153:3000/login/twitch";
+    },
+    loginWithGoogle() {
+      window.location.href = "http://37.27.206.153:3000/login/google";
+    },
   },
 };
 </script>
@@ -91,7 +101,8 @@ export default {
   padding: 0;
 }
 
-body, html {
+body,
+html {
   height: 100%;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: linear-gradient(135deg, #71b7e6, #9b59b6);
@@ -115,6 +126,43 @@ body, html {
   width: 100%;
 }
 
+.google-button {
+  background-color: #ffffff;
+  color: #444444;
+  border: 1px solid #cccccc;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.google-button img {
+  width: 20px;
+  height: 20px;
+  margin-right: 10px;
+}
+
+.google-login {
+  text-align: center;
+  margin: 10px 0;
+}
+
+.google-button {
+  background-color: #ffffff;
+  border: 1px solid #4285f4;
+  color: #4285f4;
+}
+
+.google-button:hover {
+  background-color: #4285f4;
+  color: #ffffff;
+  border-color: #4285f4;
+}
+
 .spotify-button img {
   width: 20px;
   height: 20px;
@@ -123,6 +171,35 @@ body, html {
 
 .spotify-button:hover {
   background-color: #1ed760;
+}
+
+.Twitch-login {
+  text-align: center;
+  margin: 20px 0;
+}
+
+.Twitch-button {
+  background-color: #6441A5;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.Twitch-button img {
+  width: 30px;
+  height: auto;
+  margin-right: 8px;
+  object-fit: contain;
+}
+
+.Twitch-button:hover {
+  background-color: #7D5BBE;
 }
 
 .login-container {
@@ -213,6 +290,7 @@ body, html {
     opacity: 0;
     transform: translateY(-30px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);

@@ -56,14 +56,32 @@
         <button type="submit" class="login-button">Registrati</button>
       </form>
 
-      <!-- Pulsante per il login con Spotify -->
-      <div class="spotify-login">
-        <button @click="loginWithSpotify" class="spotify-button">
-          <img src="../assets/spotify-logo.png" alt="Spotify Logo" />
-          Accedi con Spotify
-        </button>
-      </div>
+      <!-- Social Login Buttons -->
+      <div class="social-logins">
+        <!-- Spotify Login -->
+        <div class="spotify-login">
+          <button @click="loginWithSpotify" class="spotify-button">
+            <img src="../assets/spotify-logo.png" alt="Spotify Logo" />
+            Accedi con Spotify
+          </button>
+        </div>
 
+        <!-- Twitch Login -->
+        <div class="twitch-login">
+          <button @click="loginWithTwitch" class="twitch-button">
+            <img src="../assets/twitch-logo.png" alt="Twitch Logo" />
+            Accedi con Twitch
+          </button>
+        </div>
+
+        <!-- Google Login -->
+        <div class="google-login">
+          <button @click="loginWithGoogle" class="google-button">
+            <img src="../assets/google-logo.png" alt="Google Logo" />
+            Accedi con Google
+          </button>
+        </div>
+      </div>
 
       <p class="register-link">
         Hai già un account?
@@ -77,7 +95,7 @@
 import axios from "axios";
 
 export default {
-  name: "tofo-item",
+  name: "tofo-item", // Updated component name
   data() {
     return {
       username: "",
@@ -113,14 +131,37 @@ export default {
     loginWithSpotify() {
       window.location.href = "http://37.27.206.153:3000/auth/spotify";
     },
+    loginWithTwitch() {
+      window.location.href = "http://37.27.206.153:3000/auth/Twitch";
+    },
+    loginWithGoogle() {
+      window.location.href = "http://37.27.206.153:3000/auth/google";
+    },
   },
 };
 </script>
 
 <style scoped>
-.spotify-login {
+.spotify-login,
+.twitch-login,
+.google-login {
   text-align: center;
-  margin: 20px 0;
+  margin: 10px 0;
+}
+
+.twitch-button,
+.google-button {
+  background-color: #ffffff;
+  color: #444444;
+  border: 1px solid #cccccc;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .spotify-button {
@@ -136,14 +177,44 @@ export default {
   width: 100%;
 }
 
-.spotify-button img {
+
+.spotify-button img,
+.google-button img {
   width: 20px;
+  height: 20px;
+  margin-right: 10px;
+}
+
+.twitch-button img{
+  width: 40px;
   height: 20px;
   margin-right: 10px;
 }
 
 .spotify-button:hover {
   background-color: #1ed760;
+}
+
+.twitch-button {
+  background-color: #6441A5;
+  color: white;
+}
+
+.twitch-button:hover {
+  background-color: #7D5BBE;
+  border-color: #7D5BBE;
+}
+
+.google-button {
+  background-color: #ffffff;
+  border: 1px solid #4285f4;
+  color: #4285f4;
+}
+
+.google-button:hover {
+  background-color: #4285f4;
+  color: #ffffff;
+  border-color: #4285f4;
 }
 
 * {
