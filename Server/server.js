@@ -4,6 +4,8 @@
 const express = require('express');
 const passport = require('passport');
 const SpotifyStrategy = require('passport-spotify').Strategy;
+const TwitchStrategy = require('passport-twitch-new').Strategy; // Updated to Twitch
+const GoogleStrategy = require('passport-google-oauth20').Strategy; // Import Google Strategy
 const session = require('express-session');
 const fetch = require('node-fetch');
 const cors = require('cors');
@@ -18,20 +20,43 @@ dotenv.config();
 
 // Select Database Implementation
 const USE_MOCK_DB = process.env.USE_MOCK_DB === 'true';
-const db = USE_MOCK_DB ? require('./dbmock') : require('./db');
+const db = USE_MOCK_DB ? require('./dbMock') : require('./db');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 // =====================
-// Spotify Configuration
+// Configuration Variables
 // =====================
-const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
-const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
-const CALLBACK_URL = process.env.SPOTIFY_CALLBACK_URL;
+const {
+  SPOTIFY_CLIENT_ID,
+  SPOTIFY_CLIENT_SECRET,
+  SPOTIFY_CALLBACK_URL,
+  TWITCH_CLIENT_ID,
+  TWITCH_CLIENT_SECRET,
+  TWITCH_CALLBACK_URL,
+  GOOGLE_CLIENT_ID,          // Added Google Client ID
+  GOOGLE_CLIENT_SECRET,      // Added Google Client Secret
+  GOOGLE_CALLBACK_URL,       // Added Google Callback URL
+  SESSION_SECRET,
+  FRONTEND_CALLBACK_URL
+} = process.env;
 
-if (!CLIENT_ID || !CLIENT_SECRET || !CALLBACK_URL) {
+// Validate Spotify Credentials
+if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET || !SPOTIFY_CALLBACK_URL) {
   console.error('Spotify credentials not set in .env file!');
+  process.exit(1);
+}
+
+// Validate Twitch Credentials
+if (!TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET || !TWITCH_CALLBACK_URL) {
+  console.error('Twitch credentials not set in .env file!');
+  process.exit(1);
+}
+
+// Validate Google Credentials
+if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_CALLBACK_URL) {
+  console.error('Google credentials not set in .env file!');
   process.exit(1);
 }
 
@@ -41,16 +66,16 @@ if (!CLIENT_ID || !CLIENT_SECRET || !CALLBACK_URL) {
 app.use(express.json());
 
 app.use(cors({
-  origin: process.env.FRONTEND_ORIGIN || 'http://37.27.206.153:8080', // Frontend origin
+  origin: ['http://37.27.206.153:8080', 'https://marcpado.it'],
   credentials: true,
 }));
 
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-secret-key', // Use strong secret in production
+  secret: SESSION_SECRET || 'your-secret-key', // Use strong secret in production
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production', 
+    secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
@@ -60,51 +85,8 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // =====================
-// Passport Spotify Strategy
+// Passport Serialization
 // =====================
-passport.use(new SpotifyStrategy(
-  {
-    clientID: CLIENT_ID,
-    clientSecret: CLIENT_SECRET,
-    callbackURL: CALLBACK_URL,
-    passReqToCallback: true,
-  },
-  async function (req, accessToken, refreshToken, expires_in, profile, done) {
-    console.log('Spotify Strategy Callback Invoked');
-    console.log('Access Token:', accessToken);
-    const emailSpotify = (profile.emails && profile.emails[0]) ? profile.emails[0].value : '';
-
-    try {
-      // Handle token database operations
-      await db.setTokenForUser(emailSpotify, accessToken);
-
-      // Check/Create user
-      let user = await db.getUserByEmailSpotify(emailSpotify);
-      if (!user) {
-        const username = profile.username || profile.displayName || `spotify_${Date.now()}`;
-        const newUserId = await db.createUser({
-          Username: username,
-          emailSpotify,
-          Position: '',
-          Password: '',
-          DateBorn: ''
-        });
-        user = await db.getUserById(newUserId);
-      }
-
-      return done(null, {
-        id: user.id,
-        Username: user.Username,
-        emailSpotify: user.emailSpotify,
-        isAdmin: user.isAdmin
-      });
-    } catch (err) {
-      console.error('Error in Spotify Strategy:', err);
-      return done(new InternalOAuthError('failed to fetch user profile', err), null);
-    }
-  }
-));
-
 passport.serializeUser((user, done) => {
   done(null, user.id);
 });
@@ -122,6 +104,169 @@ passport.deserializeUser(async (id, done) => {
     done(err, null);
   }
 });
+
+// =====================
+// Passport Spotify Strategy
+// =====================
+passport.use(new SpotifyStrategy(
+  {
+    clientID: SPOTIFY_CLIENT_ID,
+    clientSecret: SPOTIFY_CLIENT_SECRET,
+    callbackURL: SPOTIFY_CALLBACK_URL,
+    passReqToCallback: true,
+  },
+  async function (req, accessToken, refreshToken, expires_in, profile, done) {
+    console.log('Spotify Strategy Callback Invoked');
+    console.log('Access Token:', accessToken);
+    const emailSpotify = (profile.emails && profile.emails[0]) ? profile.emails[0].value : '';
+
+    try {
+      // Handle token database operations
+      await db.setSpotifyTokenForUser(emailSpotify, accessToken);
+
+      // Check/Create user
+      let user = await db.getUserByEmailSpotify(emailSpotify);
+      if (!user) {
+        const username = profile.username || profile.displayName || `spotify_${Date.now()}`;
+        const newUserId = await db.createUser({
+          Username: username,
+          emailSpotify,
+          emailTwitch: '',
+          emailGoogle: '',
+          Position: '',
+          Password: '',
+          DateBorn: ''
+        });
+        user = await db.getUserById(newUserId);
+      }
+
+      return done(null, {
+        id: user.id,
+        Username: user.Username,
+        emailSpotify: user.emailSpotify,
+        emailTwitch: user.emailTwitch,
+        emailGoogle: user.emailGoogle,
+        isAdmin: user.isAdmin
+      });
+    } catch (err) {
+      console.error('Error in Spotify Strategy:', err);
+      return done(new Error('Failed to fetch user profile'), null);
+    }
+  }
+));
+
+// =====================
+// Passport Twitch Strategy
+// =====================
+passport.use(new TwitchStrategy(
+  {
+    clientID: TWITCH_CLIENT_ID,
+    clientSecret: TWITCH_CLIENT_SECRET,
+    callbackURL: TWITCH_CALLBACK_URL,
+    scope: "user:read:email",
+    passReqToCallback: true,
+  },
+  async function (req, accessToken, refreshToken, profile, done) {
+    try {
+      console.log('Twitch Profile:', profile);
+      
+      const emailTwitch = profile.email;
+      if (!emailTwitch) {
+        return done(new Error('No email provided by Twitch'), null);
+      }
+
+      // Store Twitch token
+      await db.setTwitchTokenForUser(emailTwitch, accessToken);
+
+      // Find or create user
+      let user = await db.getUserByEmailTwitch(emailTwitch).catch(err => {
+        console.log('Error finding Twitch user:', err);
+        return null;
+      });
+
+      if (!user) {
+        const username = profile.display_name || `twitch_${Date.now()}`;
+        try {
+          const newUserId = await db.createUser({
+            Username: username,
+            emailSpotify: '',
+            emailTwitch: emailTwitch,
+            emailGoogle: '',
+            Position: '',
+            Password: '',
+            DateBorn: ''
+          });
+          user = await db.getUserById(newUserId);
+        } catch (createError) {
+          console.error('Error creating new user:', createError);
+          return done(createError);
+        }
+      }
+
+      return done(null, {
+        id: user.id,
+        Username: user.Username,
+        emailSpotify: user.emailSpotify,
+        emailTwitch: user.emailTwitch,
+        emailGoogle: user.emailGoogle,
+        isAdmin: user.isAdmin
+      });
+    } catch (err) {
+      console.error('Twitch Auth Error:', err);
+      return done(err);
+    }
+  }
+));
+
+// =====================
+// Passport Google Strategy
+// =====================
+passport.use(new GoogleStrategy(
+  {
+    clientID: GOOGLE_CLIENT_ID,
+    clientSecret: GOOGLE_CLIENT_SECRET,
+    callbackURL: GOOGLE_CALLBACK_URL,
+    passReqToCallback: true,
+  },
+  async function (req, accessToken, refreshToken, profile, done) {
+    console.log('Google Strategy Callback Invoked');
+    console.log('Access Token:', accessToken);
+    const emailGoogle = (profile.emails && profile.emails[0]) ? profile.emails[0].value : '';
+
+    try {
+      // Handle token database operations
+      await db.setGoogleTokenForUser(emailGoogle, accessToken);
+
+      // Check/Create user
+      let user = await db.getUserByEmailGoogle(emailGoogle);
+      if (!user) {
+        const username = profile.displayName || `google_${Date.now()}`;
+        const newUserId = await db.createUser({
+          Username: username,
+          emailSpotify: '',
+          emailTwitch: '',
+          emailGoogle,
+          Position: '',
+          Password: '',
+          DateBorn: ''
+        });
+        user = await db.getUserById(newUserId);
+      }
+
+      return done(null, {
+        id: user.id,
+        Username: user.Username,
+        emailSpotify: user.emailSpotify,
+        emailTwitch: user.emailTwitch,
+        emailGoogle: user.emailGoogle,
+        isAdmin: user.isAdmin
+      });
+    } catch (err) {
+      console.error('Error in Google Strategy:', err);
+      return done(new Error('Failed to fetch user profile'), null);
+    }
+  }
+));
 
 // =====================
 // Swagger Configuration
@@ -144,6 +289,10 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
  *           type: string
  *         emailSpotify:
  *           type: string
+ *         emailTwitch:
+ *           type: string
+ *         emailGoogle:
+ *           type: string
  *         isAdmin:
  *           type: integer
  *         Position:
@@ -156,6 +305,8 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
  *         id: 1
  *         Username: johndoe
  *         emailSpotify: johndoe@spotify.com
+ *         emailTwitch: johndoe@twitch.tv
+ *         emailGoogle: johndoe@google.com
  *         isAdmin: 0
  *         Position: Treviglio
  *         Password: password123
@@ -187,13 +338,14 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
  *       400:
  *         description: Username e Password sono obbligatori
  *       409:
- *         description: Nome utente già in uso
+ *         description: Nome utente o Email Twitch o Email Google già in uso
  *       500:
  *         description: Errore del server
  */
+
 // Create user
 app.post('/users', async (req, res) => {
-  const { Username, emailSpotify, Position, Password, DateBorn } = req.body;
+  const { Username, emailSpotify, emailTwitch, emailGoogle, Position, Password, DateBorn } = req.body;
 
   if (!Username || !Password) {
     return res.status(400).send({ message: 'Username e Password sono obbligatori.' });
@@ -205,8 +357,24 @@ app.post('/users', async (req, res) => {
       return res.status(409).send({ message: 'Nome utente già in uso.' });
     }
 
-    const newUserId = await db.createUser({ 
-      Username, emailSpotify, Position, Password, DateBorn 
+    // Optionally check for emailTwitch uniqueness
+    if (emailTwitch) {
+      const existingTwitchUser = await db.getUserByEmailTwitch(emailTwitch);
+      if (existingTwitchUser) {
+        return res.status(409).send({ message: 'Email Twitch già in uso.' });
+      }
+    }
+
+    // Optionally check for emailGoogle uniqueness
+    if (emailGoogle) {
+      const existingGoogleUser = await db.getUserByEmailGoogle(emailGoogle);
+      if (existingGoogleUser) {
+        return res.status(409).send({ message: 'Email Google già in uso.' });
+      }
+    }
+
+    const newUserId = await db.createUser({
+      Username, emailSpotify, emailTwitch, emailGoogle, Position, Password, DateBorn
     });
     res.send({ message: `Utente aggiunto con ID: ${newUserId}` });
   } catch (err) {
@@ -245,6 +413,7 @@ app.post('/users', async (req, res) => {
  *       500:
  *         description: Errore del server
  */
+
 // Login
 app.post('/login', async (req, res) => {
   const { Username, Password } = req.body;
@@ -287,6 +456,7 @@ app.post('/login', async (req, res) => {
  *       500:
  *         description: Errore del server
  */
+
 // Logout
 app.post('/logout', (req, res) => {
   if (req.session.user && req.session.user.id) {
@@ -332,6 +502,7 @@ app.post('/logout', (req, res) => {
  *       500:
  *         description: Errore del server
  */
+
 // Get users with filters
 app.get('/users', async (req, res) => {
   const { Position, DateBorn } = req.query;
@@ -374,9 +545,10 @@ app.get('/users', async (req, res) => {
  *       500:
  *         description: Errore del server
  */
+
 // Update user
 app.put('/users/:id', async (req, res) => {
-  const { Username, emailSpotify, Position, Password, DateBorn } = req.body;
+  const { Username, emailSpotify, emailTwitch, emailGoogle, Position, Password, DateBorn } = req.body;
   const { id } = req.params;
 
   const isAdmin = req.headers['isadmin'] === 'true';
@@ -400,8 +572,8 @@ app.put('/users/:id', async (req, res) => {
       isAdminToSet = existingUser.isAdmin;
     }
 
-    const changes = await db.updateUser(id, { 
-      Username, emailSpotify, Position, Password, DateBorn, isAdmin: isAdminToSet 
+    const changes = await db.updateUser(id, {
+      Username, emailSpotify, emailTwitch, emailGoogle, Position, Password, DateBorn, isAdmin: isAdminToSet
     });
 
     if (changes === 0) {
@@ -438,6 +610,7 @@ app.put('/users/:id', async (req, res) => {
  *       500:
  *         description: Errore del server
  */
+
 // Delete user
 app.delete('/users/:id', async (req, res) => {
   const { id } = req.params;
@@ -464,8 +637,74 @@ app.delete('/users/:id', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /auth/spotify:
+ *   get:
+ *     summary: Iniziare l'autenticazione con Spotify
+ *     tags: [Authentication]
+ *     responses:
+ *       302:
+ *         description: Reindirizzamento a Spotify per l'autenticazione
+ */
+
+/**
+ * @swagger
+ * /auth/spotify/callback:
+ *   get:
+ *     summary: Callback URL per Spotify dopo l'autenticazione
+ *     tags: [Authentication]
+ *     responses:
+ *       302:
+ *         description: Reindirizzamento al frontend dopo l'autenticazione
+ */
+
+/**
+ * @swagger
+ * /auth/twitch:
+ *   get:
+ *     summary: Iniziare l'autenticazione con Twitch
+ *     tags: [Authentication]
+ *     responses:
+ *       302:
+ *         description: Reindirizzamento a Twitch per l'autenticazione
+ */
+
+/**
+ * @swagger
+ * /auth/twitch/callback:
+ *   get:
+ *     summary: Callback URL per Twitch dopo l'autenticazione
+ *     tags: [Authentication]
+ *     responses:
+ *       302:
+ *         description: Reindirizzamento al frontend dopo l'autenticazione
+ */
+
+/**
+ * @swagger
+ * /auth/google:
+ *   get:
+ *     summary: Iniziare l'autenticazione con Google
+ *     tags: [Authentication]
+ *     responses:
+ *       302:
+ *         description: Reindirizzamento a Google per l'autenticazione
+ */
+
+/**
+ * @swagger
+ * /auth/google/callback:
+ *   get:
+ *     summary: Callback URL per Google dopo l'autenticazione
+ *     tags: [Authentication]
+ *     responses:
+ *       302:
+ *         description: Reindirizzamento al frontend dopo l'autenticazione
+ */
+
 // Spotify Auth
-app.get('/auth/spotify', 
+app.get('/auth/spotify',
   (req, res, next) => {
     req.session.destroy((err) => {
       if (err) console.error('Error clearing session:', err);
@@ -489,7 +728,62 @@ app.get('/auth/spotify/callback',
 
     setUserOnline(req.user.id, true);
 
-    res.redirect('http://37.27.206.153:8080/auth/callback');
+    res.redirect(FRONTEND_CALLBACK_URL || 'http://37.27.206.153:8080/auth/callback');
+  }
+);
+
+// Twitch Auth
+app.get('/auth/twitch',
+  (req, res, next) => {
+    req.session.destroy((err) => {
+      if (err) console.error('Error clearing session:', err);
+      next();
+    });
+  },
+  passport.authenticate('twitch') // Adjust scopes if necessary
+);
+
+app.get('/auth/twitch/callback',
+  passport.authenticate('twitch', { failureRedirect: '/' }),
+  (req, res) => {
+    req.session.authenticated = true;
+    req.session.user = {
+      id: req.user.id,
+      isAdmin: req.user.isAdmin === 1
+    };
+
+    setUserOnline(req.user.id, true);
+
+    res.redirect(FRONTEND_CALLBACK_URL || 'http://37.27.206.153:8080/auth/callback');
+  }
+);
+
+// Google Auth
+app.get('/auth/google',
+  (req, res, next) => {
+    req.session.destroy((err) => {
+      if (err) console.error('Error clearing session:', err);
+      next();
+    });
+  },
+  passport.authenticate('google', {
+    scope: ['profile', 'email'],
+    prompt: 'select_account' // Optional: Forces account selection
+  })
+);
+
+app.get('/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: '/' }),
+  (req, res) => {
+    req.session.authenticated = true;
+    req.session.user = {
+      id: req.user.id,
+      isAdmin: req.user.isAdmin === 1
+    };
+
+    setUserOnline(req.user.id, true);
+
+    res.redirect(FRONTEND_CALLBACK_URL || 'http://37.27.206.153:8080/auth/callback');
   }
 );
 
@@ -505,6 +799,7 @@ app.get('/auth/spotify/callback',
  *       401:
  *         description: Non autenticato
  */
+
 // Get Authenticated User Info
 app.get('/auth/me', (req, res) => {
   if (!req.isAuthenticated()) {
@@ -513,15 +808,31 @@ app.get('/auth/me', (req, res) => {
   res.send({
     userId: req.user.id,
     isAdmin: req.user.isAdmin === 1,
-    emailSpotify: req.user.emailSpotify
+    emailSpotify: req.user.emailSpotify || null,
+    emailTwitch: req.user.emailTwitch || null,
+    emailGoogle: req.user.emailGoogle || null // Added emailGoogle
   });
 });
 
 app.get('/login/spotify', (req, res) => {
   if (req.isAuthenticated()) {
-    return res.redirect(process.env.FRONTEND_CALLBACK_URL || 'http://37.27.206.153:8080/auth/callback');
+    return res.redirect('http://37.27.206.153:8080/auth/callback');
   }
   res.redirect('/auth/spotify');
+});
+
+app.get('/login/twitch', (req, res) => { // Updated to Twitch
+  if (req.isAuthenticated()) {
+    return res.redirect('http://37.27.206.153:8080/auth/callback');
+  }
+  res.redirect('/auth/twitch');
+});
+
+app.get('/login/google', (req, res) => { // New route for Google login
+  if (req.isAuthenticated()) {
+    return res.redirect('http://37.27.206.153:8080/auth/callback');
+  }
+  res.redirect('/auth/google');
 });
 
 /**
@@ -540,13 +851,14 @@ app.get('/login/spotify', (req, res) => {
  *       500:
  *         description: Errore del server
  */
+
 // Get User's Favorite Tracks from Spotify
 app.get('/favorites', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).send('Non autenticato');
 
   const emailSpotify = req.user.emailSpotify;
   try {
-    const row = await db.getTokenByEmail(emailSpotify);
+    const row = await db.getSpotifyTokenByEmail(emailSpotify);
 
     if (!row || !row.token) {
       return res.status(400).send('Access Token non disponibile');
@@ -593,6 +905,7 @@ app.get('/favorites', async (req, res) => {
  *       500:
  *         description: Errore del server
  */
+
 // Check Session Status
 app.get('/auth/check-session', (req, res) => {
   res.json({
@@ -619,6 +932,7 @@ app.use('/users', (req, res, next) => {
  *       200:
  *         description: Messaggio di benvenuto
  */
+
 // Home Route
 app.get('/', (req, res) => {
   res.send('Benvenuto al server Express!');
@@ -630,7 +944,7 @@ app.get('/', (req, res) => {
 const server = http.createServer(app);
 const wss = new Server({ server });
 
-let usersStatus = {}; 
+let usersStatus = {};
 
 function broadcast(data) {
   const message = JSON.stringify(data);
@@ -678,9 +992,11 @@ function setUserListening(userId, listeningInfo) {
 
 async function updateListeningStatuses() {
   try {
-    const rows = USE_MOCK_DB ? await db.getAllTokens() : await db.getAllTokens(); // Adjust if needed
+    const spotifyTokens = await db.getAllSpotifyTokens();
+    const googleTokens = await db.getAllGoogleTokens(); // Fetch Google tokens
 
-    for (const row of rows) {
+    // Update Spotify Listening Status
+    for (const row of spotifyTokens) {
       const emailSpotify = row.emailSpotify;
       const accessToken = row.token;
 
@@ -696,6 +1012,7 @@ async function updateListeningStatuses() {
           const data = await response.json();
           if (data && data.item) {
             const listeningInfo = {
+              service: 'spotify',
               trackName: data.item.name,
               artists: data.item.artists.map(a => a.name).join(', '),
               album: data.item.album.name,
@@ -715,9 +1032,13 @@ async function updateListeningStatuses() {
           }
         }
       } catch (error) {
-        console.error('Error updating listening status for user', user.id, error);
+        console.error('Error updating Spotify listening status for user', user.id, error);
       }
     }
+
+    // Update Google Listening Status (Esempio: Ottieni informazioni dall'API di Google, se applicabile)
+    // Nota: Google non ha un'API simile a Spotify per lo stato di riproduzione attuale.
+    // Potresti implementare altre funzionalità relative a Google qui.
 
     broadcastUserStatuses();
   } catch (error) {
