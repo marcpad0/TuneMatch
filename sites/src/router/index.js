@@ -57,7 +57,7 @@ import axios from "axios";
 router.beforeEach(async (to, from, next) => {
   const requiresAuth = to.matched.some((record) => record.meta.requiresAuth);
   const requiresAdmin = to.matched.some((record) => record.meta.requiresAdmin);
-  const isAuthPage = to.name === "login" || to.name === "register"; // Check for auth pages
+  const isAuthPage = to.name === "login" || to.name === "register";
 
   try {
     const response = await axios.get(
@@ -67,8 +67,12 @@ router.beforeEach(async (to, from, next) => {
       }
     );
 
+    console.log("Auth check response:", response.data);  // Debug response data
+    
     const isAuthenticated = response.data.authenticated;
-    const isAdmin = response.data.user?.isAdmin;
+    const isAdmin = Boolean(response.data.user?.isAdmin);  // Force boolean conversion
+    
+    console.log("isAuthenticated:", isAuthenticated, "isAdmin:", isAdmin);  // Debug auth status
 
     if (requiresAuth && !isAuthenticated) {
       next({ name: "login" });
