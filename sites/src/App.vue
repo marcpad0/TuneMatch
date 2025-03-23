@@ -1,21 +1,23 @@
 <template>
-  <nav>
-    <ul class="nav-links">
-      <li><router-link to="/register">Register</router-link></li>
-      <li><router-link to="/">Login</router-link></li>
-    </ul>
-  </nav>
-  <main class="content">
+  <div id="app">
+    <nav>
+      <ul class="nav-links">
+        <li><router-link to="/register">Register</router-link></li>
+        <li><router-link to="/">Login</router-link></li>
+      </ul>
+    </nav>
+    <main class="content">
       <!-- Your login form or component will be rendered here -->
       <router-view />
-  </main>
+    </main>
+  </div>
 </template>
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Quicksand:wght@500&display=swap");
 
 #app {
-  font-family: 'Quicksand', sans-serif;
+  font-family: "Quicksand", sans-serif;
   color: #2c3e50;
   background-color: #f0f4f8;
   margin: 0;

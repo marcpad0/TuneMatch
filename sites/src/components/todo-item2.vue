@@ -6,11 +6,23 @@
       <form @submit.prevent="loginUser">
         <div class="input-group">
           <label for="username">Username</label>
-          <input id="username" v-model="username" type="text" placeholder="Inserisci il tuo username" required />
+          <input
+            id="username"
+            v-model="username"
+            type="text"
+            placeholder="Inserisci il tuo username"
+            required
+          />
         </div>
         <div class="input-group">
           <label for="password">Password</label>
-          <input id="password" v-model="password" type="password" placeholder="Inserisci la tua password" required />
+          <input
+            id="password"
+            v-model="password"
+            type="password"
+            placeholder="Inserisci la tua password"
+            required
+          />
         </div>
         <button type="submit" class="login-button">Login</button>
       </form>
@@ -23,13 +35,13 @@
         </button>
       </div>
 
-      <!-- Add this after Spotify login button -->
+<!--       Add this after Spotify login button
       <div class="Twitch-login">
         <button @click="loginWithTwitch" class="Twitch-button">
           <img src="../assets/twitch-logo.png" alt="Twitch Logo" />
           Accedi con Twitch
         </button>
-      </div>
+      </div> -->
 
       <!-- Add this after Twitch login button -->
       <div class="google-login">
@@ -62,12 +74,16 @@ export default {
     // Inside the loginUser method in todo-item2.vue
     async loginUser() {
       try {
-        await axios.post("http://37.27.206.153:3000/login", {
-          Username: this.username,
-          Password: this.password,
-        }, {
-          withCredentials: true // Important for cookies
-        });
+        await axios.post(
+          "http://localhost:3000/login",
+          {
+            Username: this.username,
+            Password: this.password,
+          },
+          {
+            withCredentials: true, // Important for cookies
+          }
+        );
 
         // Redirect to UserList
         this.$router.push("/users");
@@ -81,13 +97,13 @@ export default {
       }
     },
     loginWithSpotify() {
-      window.location.href = "http://37.27.206.153:3000/login/spotify";
+      window.location.href = "http://localhost:3000/login/spotify";
     },
     loginWithTwitch() {
-      window.location.href = "http://37.27.206.153:3000/login/twitch";
+      window.location.href = "http://localhost:3000/login/twitch";
     },
     loginWithGoogle() {
-      window.location.href = "http://37.27.206.153:3000/login/google";
+      window.location.href = "http://localhost:3000/login/google";
     },
   },
 };
@@ -104,7 +120,7 @@ export default {
 body,
 html {
   height: 100%;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   background: linear-gradient(135deg, #71b7e6, #9b59b6);
 }
 
@@ -114,7 +130,7 @@ html {
 }
 
 .spotify-button {
-  background-color: #1DB954;
+  background-color: #1db954;
   color: white;
   border: none;
   padding: 10px 20px;
@@ -179,7 +195,7 @@ html {
 }
 
 .Twitch-button {
-  background-color: #6441A5;
+  background-color: #6441a5;
   color: white;
   border: none;
   padding: 10px 20px;
@@ -199,7 +215,7 @@ html {
 }
 
 .Twitch-button:hover {
-  background-color: #7D5BBE;
+  background-color: #7d5bbe;
 }
 
 .login-container {

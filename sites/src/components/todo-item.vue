@@ -36,12 +36,7 @@
         </div>
         <div class="input-group">
           <label for="dateBorn">Data di Nascita</label>
-          <input
-            id="dateBorn"
-            v-model="dateBorn"
-            type="date"
-            required
-          />
+          <input id="dateBorn" v-model="dateBorn" type="date" required />
         </div>
         <div class="input-group">
           <label for="password">Password</label>
@@ -66,13 +61,13 @@
           </button>
         </div>
 
-        <!-- Twitch Login -->
+<!--         Twitch Login
         <div class="twitch-login">
           <button @click="loginWithTwitch" class="twitch-button">
             <img src="../assets/twitch-logo.png" alt="Twitch Logo" />
             Accedi con Twitch
           </button>
-        </div>
+        </div> -->
 
         <!-- Google Login -->
         <div class="google-login">
@@ -99,7 +94,7 @@ export default {
   data() {
     return {
       username: "",
-      emailSpotify: "",  
+      emailSpotify: "",
       position: "",
       password: "",
       dateBorn: "",
@@ -108,34 +103,40 @@ export default {
   methods: {
     async registerUser() {
       try {
-        const response = await axios.post("http://37.27.206.153:3000/users", {
+        const response = await axios.post("http://localhost:3000/users", {
           Username: this.username,
           emailSpotify: this.emailSpotify,
           Position: this.position,
           Password: this.password,
           DateBorn: this.dateBorn,
         });
-        alert(`Utente registrato con successo con ID: ${response.data.message}`);
-        this.$router.push('/');
+        alert(
+          `Utente registrato con successo con ID: ${response.data.message}`
+        );
+        this.$router.push("/");
       } catch (error) {
         console.error("Errore durante la registrazione:", error);
         if (error.response && error.response.status === 409) {
-          alert('Registrazione fallita: Nome utente già in uso.');
-        } else if (error.response && error.response.data && error.response.data.message) {
+          alert("Registrazione fallita: Nome utente già in uso.");
+        } else if (
+          error.response &&
+          error.response.data &&
+          error.response.data.message
+        ) {
           alert(`Registrazione fallita: ${error.response.data.message}`);
         } else {
-          alert('Registrazione fallita. Riprova più tardi.');
+          alert("Registrazione fallita. Riprova più tardi.");
         }
       }
     },
     loginWithSpotify() {
-      window.location.href = "http://37.27.206.153:3000/auth/spotify";
+      window.location.href = "http://localhost:3000/auth/spotify";
     },
     loginWithTwitch() {
-      window.location.href = "http://37.27.206.153:3000/auth/Twitch";
+      window.location.href = "http://localhost:3000/auth/Twitch";
     },
     loginWithGoogle() {
-      window.location.href = "http://37.27.206.153:3000/auth/google";
+      window.location.href = "http://localhost:3000/auth/google";
     },
   },
 };
@@ -165,7 +166,7 @@ export default {
 }
 
 .spotify-button {
-  background-color: #1DB954;
+  background-color: #1db954;
   color: white;
   border: none;
   padding: 10px 20px;
@@ -177,7 +178,6 @@ export default {
   width: 100%;
 }
 
-
 .spotify-button img,
 .google-button img {
   width: 20px;
@@ -185,7 +185,7 @@ export default {
   margin-right: 10px;
 }
 
-.twitch-button img{
+.twitch-button img {
   width: 40px;
   height: 20px;
   margin-right: 10px;
@@ -196,13 +196,13 @@ export default {
 }
 
 .twitch-button {
-  background-color: #6441A5;
+  background-color: #6441a5;
   color: white;
 }
 
 .twitch-button:hover {
-  background-color: #7D5BBE;
-  border-color: #7D5BBE;
+  background-color: #7d5bbe;
+  border-color: #7d5bbe;
 }
 
 .google-button {
@@ -223,9 +223,10 @@ export default {
   padding: 0;
 }
 
-body, html {
+body,
+html {
   height: 100%;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   background: linear-gradient(135deg, #71b7e6, #9b59b6);
 }
 

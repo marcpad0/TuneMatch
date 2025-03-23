@@ -13,21 +13,21 @@ export default {
   async mounted() {
     try {
       // Just verify the session is set
-      const response = await axios.get("http://37.27.206.153:3000/auth/me", {
-        withCredentials: true
+      const response = await axios.get("http://localhost:3000/auth/me", {
+        withCredentials: true,
       });
 
       if (response.data) {
         this.$router.push("/users");
       } else {
-        throw new Error('Authentication failed');
+        throw new Error("Authentication failed");
       }
     } catch (error) {
       console.error("Authentication error:", error);
       alert("Authentication failed. Please try again.");
       this.$router.push("/");
     }
-  }
+  },
 };
 </script>
 

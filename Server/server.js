@@ -7,7 +7,6 @@ const SpotifyStrategy = require('passport-spotify').Strategy;
 const TwitchStrategy = require('passport-twitch-new').Strategy; // Updated to Twitch
 const GoogleStrategy = require('passport-google-oauth20').Strategy; // Import Google Strategy
 const session = require('express-session');
-const fetch = require('node-fetch');
 const cors = require('cors');
 const { swaggerUi, swaggerDocs } = require('./swagger');
 const dotenv = require('dotenv');
@@ -20,7 +19,7 @@ dotenv.config();
 
 // Select Database Implementation
 const USE_MOCK_DB = process.env.USE_MOCK_DB === 'true';
-const db = USE_MOCK_DB ? require('./dbMock') : require('./db');
+const db = USE_MOCK_DB ? require('./dbmock') : require('./db');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -35,9 +34,9 @@ const {
   TWITCH_CLIENT_ID,
   TWITCH_CLIENT_SECRET,
   TWITCH_CALLBACK_URL,
-  GOOGLE_CLIENT_ID,          // Added Google Client ID
-  GOOGLE_CLIENT_SECRET,      // Added Google Client Secret
-  GOOGLE_CALLBACK_URL,       // Added Google Callback URL
+  GOOGLE_CLIENT_ID,          
+  GOOGLE_CLIENT_SECRET,      
+  GOOGLE_CALLBACK_URL,       
   SESSION_SECRET,
   FRONTEND_CALLBACK_URL
 } = process.env;
@@ -60,24 +59,34 @@ if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_CALLBACK_URL) {
   process.exit(1);
 }
 
+console.log('Spotify Client ID:', SPOTIFY_CLIENT_ID);
+console.log('Spotify Callback URL:', SPOTIFY_CALLBACK_URL);
+console.log('Twitch Client ID:', TWITCH_CLIENT_ID);
+console.log('Twitch Callback URL:', TWITCH_CALLBACK_URL);
+console.log('Google Client ID:', GOOGLE_CLIENT_ID); 
+console.log('Google Callback URL:', GOOGLE_CALLBACK_URL); 
+
 // =====================
 // Middleware Configuration
 // =====================
 app.use(express.json());
 
 app.use(cors({
-  origin: ['http://37.27.206.153:8080', 'https://marcpado.it'],
+  origin: ['http://localhost:8080', 'https://marcpado.it', 'http://localhost:8081'],
   credentials: true,
 }));
 
+app.set('trust proxy', 1);
+
 app.use(session({
-  secret: SESSION_SECRET || 'your-secret-key', // Use strong secret in production
+  secret: SESSION_SECRET || 'your-secret-key',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: false, // not using HTTPS
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    sameSite: 'lax', // allow limited cross-origin behavior
+    maxAge: 24 * 60 * 60 * 1000,
   }
 }));
 
@@ -728,7 +737,7 @@ app.get('/auth/spotify/callback',
 
     setUserOnline(req.user.id, true);
 
-    res.redirect(FRONTEND_CALLBACK_URL || 'http://37.27.206.153:8080/auth/callback');
+    res.redirect(FRONTEND_CALLBACK_URL || 'http://localhost:8080/auth/callback');
   }
 );
 
@@ -754,7 +763,7 @@ app.get('/auth/twitch/callback',
 
     setUserOnline(req.user.id, true);
 
-    res.redirect(FRONTEND_CALLBACK_URL || 'http://37.27.206.153:8080/auth/callback');
+    res.redirect(FRONTEND_CALLBACK_URL || 'http://localhost:8080/auth/callback');
   }
 );
 
@@ -783,7 +792,7 @@ app.get('/auth/google/callback',
 
     setUserOnline(req.user.id, true);
 
-    res.redirect(FRONTEND_CALLBACK_URL || 'http://37.27.206.153:8080/auth/callback');
+    res.redirect(FRONTEND_CALLBACK_URL || 'http://localhost:8080/auth/callback');
   }
 );
 
@@ -816,21 +825,21 @@ app.get('/auth/me', (req, res) => {
 
 app.get('/login/spotify', (req, res) => {
   if (req.isAuthenticated()) {
-    return res.redirect('http://37.27.206.153:8080/auth/callback');
+    return res.redirect('http://localhost:8080/auth/callback');
   }
   res.redirect('/auth/spotify');
 });
 
 app.get('/login/twitch', (req, res) => { // Updated to Twitch
   if (req.isAuthenticated()) {
-    return res.redirect('http://37.27.206.153:8080/auth/callback');
+    return res.redirect('http://localhost:8080/auth/callback');
   }
   res.redirect('/auth/twitch');
 });
 
 app.get('/login/google', (req, res) => { // New route for Google login
   if (req.isAuthenticated()) {
-    return res.redirect('http://37.27.206.153:8080/auth/callback');
+    return res.redirect('http://localhost:8080/auth/callback');
   }
   res.redirect('/auth/google');
 });

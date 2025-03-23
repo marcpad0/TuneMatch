@@ -10,16 +10,19 @@
 
       <!-- Users Cards Section -->
       <div class="users-cards">
-        <div
-          v-for="user in users"
-          :key="user.id"
-          class="user-card"
-        >
+        <div v-for="user in users" :key="user.id" class="user-card">
           <div class="user-card-header">
             <strong>{{ user.Username }}</strong>
             <div class="user-actions">
-              <button @click="editUser(user)" class="action-button edit-button">Edit</button>
-              <button @click="deleteUser(user.id)" class="action-button delete-button">Delete</button>
+              <button @click="editUser(user)" class="action-button edit-button">
+                Edit
+              </button>
+              <button
+                @click="deleteUser(user.id)"
+                class="action-button delete-button"
+              >
+                Delete
+              </button>
             </div>
           </div>
           <div class="user-card-content">
@@ -28,7 +31,7 @@
             <p><strong>Email Google:</strong> {{ user.emailGoogle }}</p>
             <p><strong>Position:</strong> {{ user.Position }}</p>
             <p><strong>Date Born:</strong> {{ formatDate(user.DateBorn) }}</p>
-            <p><strong>Admin:</strong> {{ user.isAdmin ? 'Yes' : 'No' }}</p>
+            <p><strong>Admin:</strong> {{ user.isAdmin ? "Yes" : "No" }}</p>
           </div>
         </div>
       </div>
@@ -42,24 +45,39 @@
             <div class="modal-grid">
               <div class="input-group">
                 <label>Username:</label>
-                <input v-model="editingUser.Username" type="text" required class="cute-input">
+                <input
+                  v-model="editingUser.Username"
+                  type="text"
+                  required
+                  class="cute-input"
+                />
               </div>
               <div class="input-group">
                 <label>Position:</label>
-                <input v-model="editingUser.Position" type="text" class="cute-input">
+                <input
+                  v-model="editingUser.Position"
+                  type="text"
+                  class="cute-input"
+                />
               </div>
               <div class="input-group">
                 <label>Date Born:</label>
-                <input v-model="editingUser.DateBorn" type="date" class="cute-input">
+                <input
+                  v-model="editingUser.DateBorn"
+                  type="date"
+                  class="cute-input"
+                />
               </div>
               <div class="input-group checkbox-group">
                 <label>Is Admin:</label>
-                <input v-model="editingUser.isAdmin" type="checkbox">
+                <input v-model="editingUser.isAdmin" type="checkbox" />
               </div>
             </div>
             <div class="modal-buttons">
               <button type="submit" class="save-btn">Save</button>
-              <button type="button" @click="closeModal" class="cancel-btn">Cancel</button>
+              <button type="button" @click="closeModal" class="cancel-btn">
+                Cancel
+              </button>
             </div>
           </form>
         </div>
@@ -69,16 +87,16 @@
 </template>
 
 <script>
-import axios from 'axios';
+import axios from "axios";
 
 export default {
-  name: 'AdminPage',
+  name: "AdminPage",
   data() {
     return {
       users: [],
       showModal: false,
-      editingUser: {}
-    }
+      editingUser: {},
+    };
   },
   async created() {
     await this.loadUsers();
@@ -86,13 +104,13 @@ export default {
   methods: {
     async loadUsers() {
       try {
-        const response = await axios.get('http://37.27.206.153:3000/users', {
-          withCredentials: true
+        const response = await axios.get("http://localhost:3000/users", {
+          withCredentials: true,
         });
         this.users = response.data;
       } catch (error) {
-        console.error('Error loading users:', error);
-        alert('Error loading users');
+        console.error("Error loading users:", error);
+        alert("Error loading users");
       }
     },
     editUser(user) {
@@ -106,57 +124,61 @@ export default {
     async updateUser() {
       try {
         await axios.put(
-          `http://37.27.206.153:3000/users/${this.editingUser.id}`, 
+          `http://localhost:3000/users/${this.editingUser.id}`,
           this.editingUser,
           {
             withCredentials: true,
             headers: {
-              'isadmin': 'true',
-              'userid': this.editingUser.id
-            }
+              isadmin: "true",
+              userid: this.editingUser.id,
+            },
           }
         );
         await this.loadUsers();
         this.closeModal();
       } catch (error) {
-        console.error('Error updating user:', error);
-        alert('Error updating user');
+        console.error("Error updating user:", error);
+        alert("Error updating user");
       }
     },
     async deleteUser(userId) {
-      if (confirm('Are you sure you want to delete this user?')) {
+      if (confirm("Are you sure you want to delete this user?")) {
         try {
-          await axios.delete(`http://37.27.206.153:3000/users/${userId}`, {
+          await axios.delete(`http://localhost:3000/users/${userId}`, {
             withCredentials: true,
             headers: {
-              'isadmin': 'true',
-              'userid': userId
-            }
+              isadmin: "true",
+              userid: userId,
+            },
           });
           await this.loadUsers();
         } catch (error) {
-          console.error('Error deleting user:', error);
-          alert('Error deleting user');
+          console.error("Error deleting user:", error);
+          alert("Error deleting user");
         }
       }
     },
     formatDate(date) {
-      const options = { year: 'numeric', month: 'long', day: 'numeric' };
+      const options = { year: "numeric", month: "long", day: "numeric" };
       return new Date(date).toLocaleDateString(undefined, options);
     },
     async logout() {
       try {
-        await axios.post('http://37.27.206.153:3000/logout', {}, {
-          withCredentials: true
-        });
+        await axios.post(
+          "http://localhost:3000/logout",
+          {},
+          {
+            withCredentials: true,
+          }
+        );
         this.$router.push("/");
       } catch (error) {
-        console.error('Logout error:', error);
+        console.error("Logout error:", error);
         alert("Error during logout.");
       }
-    }
-  }
-}
+    },
+  },
+};
 </script>
 
 <style scoped>

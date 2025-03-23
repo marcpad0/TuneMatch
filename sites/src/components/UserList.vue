@@ -12,11 +12,21 @@
           <div class="filters-grid">
             <div class="input-group">
               <label for="position">Posizione:</label>
-              <input id="position" v-model="filtri.Position" placeholder="es. Bergamo" class="cute-input" />
+              <input
+                id="position"
+                v-model="filtri.Position"
+                placeholder="es. Bergamo"
+                class="cute-input"
+              />
             </div>
             <div class="input-group">
               <label for="dateBorn">Data di Nascita:</label>
-              <input type="date" id="dateBorn" v-model="filtri.DateBorn" class="cute-input" />
+              <input
+                type="date"
+                id="dateBorn"
+                v-model="filtri.DateBorn"
+                class="cute-input"
+              />
             </div>
           </div>
           <div class="filter-buttons">
@@ -30,40 +40,57 @@
 
       <!-- Mobile Cards -->
       <div class="user-cards-mobile">
-        <div v-for="utente in utentiFiltrati" :key="utente.id" class="user-card">
+        <div
+          v-for="utente in utentiFiltrati"
+          :key="utente.id"
+          class="user-card"
+        >
           <div class="user-card-header">
             <strong>{{ utente.Username }}</strong>
             <div class="user-actions">
-              <button v-if="puòModificare(utente)" class="action-button" @click="modificaUtente(utente)">
+              <button
+                v-if="puòModificare(utente)"
+                class="action-button"
+                @click="modificaUtente(utente)"
+              >
                 Modifica
               </button>
-              <button v-if="puòCancellare(utente)" class="action-button delete-button"
-                @click="cancellaUtente(utente.id)">
+              <button
+                v-if="puòCancellare(utente)"
+                class="action-button delete-button"
+                @click="cancellaUtente(utente.id)"
+              >
                 Cancella
               </button>
             </div>
           </div>
           <div class="user-card-content">
             <p><strong>Email Spotify:</strong> {{ utente.emailSpotify }}</p>
-            <p><strong>Email Twitch:</strong> {{ utente.emailTwitch }}</p>
-            <p><strong>Email Google:</strong> {{ utente.emailGoogle }}</p>  
+            <p><strong>Email Google:</strong> {{ utente.emailGoogle }}</p>
             <p><strong>Posizione:</strong> {{ utente.Position }}</p>
             <p><strong>Data di Nascita:</strong> {{ utente.DateBorn }}</p>
             <p class="status-line">
               <strong>Status:</strong>
-              <span v-if="getUserStatus(utente.id).online" class="status-indicator online"></span>
+              <span
+                v-if="getUserStatus(utente.id).online"
+                class="status-indicator online"
+              ></span>
               <span v-else class="status-indicator offline"></span>
               <span v-if="getUserStatus(utente.id).online">Online</span>
               <span v-else>Offline</span>
             </p>
-            <div v-if="getUserStatus(utente.id).listening" class="listening-container">
+            <div
+              v-if="getUserStatus(utente.id).listening"
+              class="listening-container"
+            >
               <strong><i class="fas fa-headphones"></i> Listening to:</strong>
               <span class="listening-text">
-                {{ getUserStatus(utente.id).listening.trackName }} by {{ getUserStatus(utente.id).listening.artists }}
+                {{ getUserStatus(utente.id).listening.trackName }} by
+                {{ getUserStatus(utente.id).listening.artists }}
               </span>
             </div>
             <!-- If no track is playing, show blank space -->
-            <div v-else style="min-height: 20px;"></div>
+            <div v-else style="min-height: 20px"></div>
           </div>
         </div>
       </div>
@@ -75,7 +102,6 @@
             <tr>
               <th>Username</th>
               <th>Email Spotify</th>
-              <th>Email Twitch</th>
               <th>Email Google</th>
               <th>Posizione</th>
               <th>Data di Nascita</th>
@@ -88,33 +114,45 @@
             <tr v-for="utente in utentiFiltrati" :key="utente.id">
               <td>{{ utente.Username }}</td>
               <td>{{ utente.emailSpotify }}</td>
-              <td>{{ utente.emailTwitch }}</td>
               <td>{{ utente.emailGoogle }}</td>
               <td>{{ utente.Position }}</td>
               <td>{{ utente.DateBorn }}</td>
               <td>
                 <span class="status-line">
-                  <span v-if="getUserStatus(utente.id).online" class="status-indicator online"></span>
+                  <span
+                    v-if="getUserStatus(utente.id).online"
+                    class="status-indicator online"
+                  ></span>
                   <span v-else class="status-indicator offline"></span>
                   <span v-if="getUserStatus(utente.id).online">Online</span>
                   <span v-else>Offline</span>
                 </span>
               </td>
               <td>
-                <div v-if="getUserStatus(utente.id).listening" class="listening-container">
+                <div
+                  v-if="getUserStatus(utente.id).listening"
+                  class="listening-container"
+                >
                   <strong><i class="fas fa-headphones"></i> </strong>
                   <span class="listening-text">
-                    {{ getUserStatus(utente.id).listening.trackName }} by {{ getUserStatus(utente.id).listening.artists
-                    }}
+                    {{ getUserStatus(utente.id).listening.trackName }} by
+                    {{ getUserStatus(utente.id).listening.artists }}
                   </span>
                 </div>
               </td>
               <td>
-                <button v-if="puòModificare(utente)" class="action-button" @click="modificaUtente(utente)">
+                <button
+                  v-if="puòModificare(utente)"
+                  class="action-button"
+                  @click="modificaUtente(utente)"
+                >
                   Modifica
                 </button>
-                <button v-if="puòCancellare(utente)" class="action-button delete-button"
-                  @click="cancellaUtente(utente.id)">
+                <button
+                  v-if="puòCancellare(utente)"
+                  class="action-button delete-button"
+                  @click="cancellaUtente(utente.id)"
+                >
                   Cancella
                 </button>
               </td>
@@ -127,12 +165,23 @@
       <div class="favorite-tracks-section">
         <h3 class="subtitle">Brani Preferiti</h3>
         <div class="favorites-grid">
-          <div v-for="track in favorites" :key="track.id" class="favorite-track-card" @click="openSpotifyTrack(track)">
-            <img v-if="track.album && track.album.images && track.album.images[0]" :src="track.album.images[0].url"
-              alt="Album Art" class="album-art" />
+          <div
+            v-for="track in favorites"
+            :key="track.id"
+            class="favorite-track-card"
+            @click="openSpotifyTrack(track)"
+          >
+            <img
+              v-if="track.album && track.album.images && track.album.images[0]"
+              :src="track.album.images[0].url"
+              alt="Album Art"
+              class="album-art"
+            />
             <div class="track-info">
               <h4>{{ track.name }}</h4>
-              <p><strong>Artista:</strong> {{ getArtistNames(track.artists) }}</p>
+              <p>
+                <strong>Artista:</strong> {{ getArtistNames(track.artists) }}
+              </p>
               <p><strong>Album:</strong> {{ track.album.name }}</p>
             </div>
           </div>
@@ -148,32 +197,55 @@
             <div class="modal-grid">
               <div class="input-group">
                 <label for="editUsername">Username:</label>
-                <input id="editUsername" v-model="utenteModificabile.Username" required class="cute-input" />
+                <input
+                  id="editUsername"
+                  v-model="utenteModificabile.Username"
+                  required
+                  class="cute-input"
+                />
               </div>
               <div class="input-group">
                 <label for="editEmailSpotify">Email Spotify:</label>
-                <input id="editEmailSpotify" v-model="utenteModificabile.emailSpotify" class="cute-input" />
-              </div>
-              <div class="input-group">
-                <label for="editEmailTwitch">Email Twitch:</label>
-                <input id="editEmailTwitch" v-model="utenteModificabile.emailTwitch" class="cute-input" />
+                <input
+                  id="editEmailSpotify"
+                  v-model="utenteModificabile.emailSpotify"
+                  class="cute-input"
+                />
               </div>
               <div class="input-group">
                 <label for="editEmailGoogle">Email Google:</label>
-                <input id="editEmailGoogle" v-model="utenteModificabile.emailGoogle" class="cute-input" />
+                <input
+                  id="editEmailGoogle"
+                  v-model="utenteModificabile.emailGoogle"
+                  class="cute-input"
+                />
               </div>
               <div class="input-group">
                 <label for="editPosition">Posizione:</label>
-                <input id="editPosition" v-model="utenteModificabile.Position" class="cute-input" />
+                <input
+                  id="editPosition"
+                  v-model="utenteModificabile.Position"
+                  class="cute-input"
+                />
               </div>
               <div class="input-group">
                 <label for="editPassword">Password:</label>
-                <input id="editPassword" type="password" v-model="utenteModificabile.Password" required
-                  class="cute-input" />
+                <input
+                  id="editPassword"
+                  type="password"
+                  v-model="utenteModificabile.Password"
+                  required
+                  class="cute-input"
+                />
               </div>
               <div class="input-group">
                 <label for="editDateBorn">Data di Nascita:</label>
-                <input id="editDateBorn" type="date" v-model="utenteModificabile.DateBorn" class="cute-input" />
+                <input
+                  id="editDateBorn"
+                  type="date"
+                  v-model="utenteModificabile.DateBorn"
+                  class="cute-input"
+                />
               </div>
             </div>
             <button type="submit" class="modal-button">Salva Modifiche</button>
@@ -202,14 +274,14 @@ export default {
       },
       favorites: [],
       userId: null,
-      statuses: []
+      statuses: [],
     };
   },
   methods: {
     async getUserData() {
       try {
-        const response = await axios.get('http://37.27.206.153:3000/auth/me', {
-          withCredentials: true
+        const response = await axios.get("http://localhost:3000/auth/me", {
+          withCredentials: true,
         });
         this.userData = response.data;
         this.userId = this.userData.userId.toString();
@@ -222,9 +294,9 @@ export default {
       try {
         const response = await new Promise((resolve, reject) => {
           const xhr = new XMLHttpRequest();
-          xhr.open('GET', 'http://37.27.206.153:3000/users', true);
+          xhr.open("GET", "http://localhost:3000/users", true);
           xhr.withCredentials = true;
-          xhr.setRequestHeader('userId', this.userId);
+          xhr.setRequestHeader("userId", this.userId);
 
           xhr.onload = function () {
             if (xhr.status >= 200 && xhr.status < 300) {
@@ -235,13 +307,15 @@ export default {
           };
 
           xhr.onerror = function () {
-            reject(new Error('Network Error'));
+            reject(new Error("Network Error"));
           };
 
           xhr.send();
         });
 
-        this.utenti = response;
+        // Filter out admin users before setting the users list
+        this.utenti = response.filter((user) => !user.isAdmin);
+        this.utenti = this.utenti.filter((user) => !user.emailTwitch);
         this.utentiFiltrati = this.utenti;
       } catch (error) {
         console.error("Errore nel recupero degli utenti:", error);
@@ -269,11 +343,10 @@ export default {
     async aggiornaUtente() {
       try {
         await axios.put(
-          `http://37.27.206.153:3000/users/${this.utenteModificabile.id}`,
+          `http://localhost:3000/users/${this.utenteModificabile.id}`,
           {
             Username: this.utenteModificabile.Username,
             emailSpotify: this.utenteModificabile.emailSpotify,
-            emailTwitch: this.utenteModificabile.emailTwitch,
             emailGoogle: this.utenteModificabile.emailGoogle,
             Position: this.utenteModificabile.Position,
             Password: this.utenteModificabile.Password,
@@ -283,7 +356,7 @@ export default {
             headers: {
               userId: this.userId,
             },
-            withCredentials: true
+            withCredentials: true,
           }
         );
 
@@ -292,8 +365,14 @@ export default {
         this.recuperaUtenti();
       } catch (error) {
         console.error("Errore nell'aggiornamento dell'utente:", error);
-        if (error.response && error.response.data && error.response.data.message) {
-          alert(`Impossibile aggiornare l'utente: ${error.response.data.message}`);
+        if (
+          error.response &&
+          error.response.data &&
+          error.response.data.message
+        ) {
+          alert(
+            `Impossibile aggiornare l'utente: ${error.response.data.message}`
+          );
         } else {
           alert(`Impossibile aggiornare l'utente: ${error.message}`);
         }
@@ -305,15 +384,17 @@ export default {
       }
 
       try {
-        await axios.delete(`http://37.27.206.153:3000/users/${id}`, {
+        await axios.delete(`http://localhost:3000/users/${id}`, {
           headers: {
             userId: this.userId,
           },
-          withCredentials: true
+          withCredentials: true,
         });
 
         if (id === parseInt(this.userId)) {
-          alert("Il tuo account è stato eliminato. Effettua il login di nuovo.");
+          alert(
+            "Il tuo account è stato eliminato. Effettua il login di nuovo."
+          );
           this.logout();
         } else {
           alert(`Utente con ID "${id}" eliminato con successo.`);
@@ -321,8 +402,14 @@ export default {
         }
       } catch (error) {
         console.error("Errore nell'eliminazione dell'utente:", error);
-        if (error.response && error.response.data && error.response.data.message) {
-          alert(`Impossibile eliminare l'utente: ${error.response.data.message}`);
+        if (
+          error.response &&
+          error.response.data &&
+          error.response.data.message
+        ) {
+          alert(
+            `Impossibile eliminare l'utente: ${error.response.data.message}`
+          );
         } else {
           alert(`Impossibile eliminare l'utente: ${error.message}`);
         }
@@ -330,12 +417,16 @@ export default {
     },
     async logout() {
       try {
-        await axios.post('http://37.27.206.153:3000/logout', {}, {
-          withCredentials: true
-        });
+        await axios.post(
+          "http://localhost:3000/logout",
+          {},
+          {
+            withCredentials: true,
+          }
+        );
         this.$router.push("/");
       } catch (error) {
-        console.error('Logout error:', error);
+        console.error("Logout error:", error);
         alert("Errore durante il logout.");
       }
     },
@@ -344,29 +435,36 @@ export default {
       const queryParams = new URLSearchParams();
 
       if (this.filtri.Position) {
-        queryParams.append('Position', this.filtri.Position);
+        queryParams.append("Position", this.filtri.Position);
       }
 
       if (this.filtri.DateBorn) {
-        queryParams.append('DateBorn', this.filtri.DateBorn);
+        queryParams.append("DateBorn", this.filtri.DateBorn);
       }
 
-      xhr.open('GET', `http://37.27.206.153:3000/users?${queryParams.toString()}`, true);
+      xhr.open(
+        "GET",
+        `http://localhost:3000/users?${queryParams.toString()}`,
+        true
+      );
       xhr.withCredentials = true;
-      xhr.setRequestHeader('userId', this.userId);
+      xhr.setRequestHeader("userId", this.userId);
 
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-          this.utentiFiltrati = JSON.parse(xhr.responseText);
+          // Filter out admin users from the filtered results
+          this.utentiFiltrati = JSON.parse(xhr.responseText).filter(
+            (user) => !user.isAdmin
+          );
         } else {
-          console.error('Error applying filters:', xhr.statusText);
-          alert('Errore durante l\'applicazione dei filtri.');
+          console.error("Error applying filters:", xhr.statusText);
+          alert("Errore durante l'applicazione dei filtri.");
         }
       };
 
       xhr.onerror = () => {
-        console.error('Request failed');
-        alert('Errore di rete durante l\'applicazione dei filtri.');
+        console.error("Request failed");
+        alert("Errore di rete durante l'applicazione dei filtri.");
       };
 
       xhr.send();
@@ -378,8 +476,8 @@ export default {
     },
     favorite() {
       axios
-        .get("http://37.27.206.153:3000/favorites", {
-          withCredentials: true
+        .get("http://localhost:3000/favorites", {
+          withCredentials: true,
         })
         .then((response) => {
           this.favorites = response.data;
@@ -397,33 +495,33 @@ export default {
     },
     getArtistNames(artists) {
       if (!artists || artists.length === 0) return "Artista sconosciuto";
-      return artists.map(artist => artist.name).join(", ");
+      return artists.map((artist) => artist.name).join(", ");
     },
     getUserStatus(userId) {
-      const status = this.statuses.find(s => s.userId == userId);
+      const status = this.statuses.find((s) => s.userId == userId);
       return status || {};
     },
     setupWebSocket() {
-      const ws = new WebSocket('ws://37.27.206.153:3000');
+      const ws = new WebSocket("ws://localhost:3000");
 
       ws.onopen = () => {
-        console.log('WebSocket connection established.');
+        console.log("WebSocket connection established.");
       };
 
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        if (data.type === 'status_update') {
+        if (data.type === "status_update") {
           this.statuses = data.data;
         }
       };
 
       ws.onclose = () => {
-        console.log('WebSocket connection closed. Reconnecting in 5s...');
+        console.log("WebSocket connection closed. Reconnecting in 5s...");
         setTimeout(() => this.setupWebSocket(), 5000);
       };
 
       ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.error("WebSocket error:", error);
       };
 
       this.ws = ws;
