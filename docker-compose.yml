@@ -1,0 +1,29 @@
+services:
+  backend:
+    build:
+      context: ./Server
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - USE_MOCK_DB=false
+    volumes:
+      - ./Server:/app
+      - /app/node_modules
+
+  frontend:
+    build:
+      context: ./sites
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - backend
+    volumes:
+      - ./sites:/app
+      - /app/node_modules
+
