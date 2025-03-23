@@ -1,6 +1,39 @@
 <template>
   <div class="userlist-container">
-    <div class="userlist-card">
+    <!-- Profile Completion Modal -->
+    <div v-if="showProfileCompletion" class="modal profile-completion-modal">
+      <div class="modal-content">
+        <h3 class="modal-title">Completa il tuo profilo</h3>
+        <p>Per continuare, completa i seguenti dati obbligatori:</p>
+        <form @submit.prevent="completeProfile">
+          <div class="modal-grid">
+            <div class="input-group">
+              <label for="completePosition">Posizione:</label>
+              <input
+                id="completePosition"
+                v-model="profileData.Position"
+                required
+                class="cute-input"
+                placeholder="es. Milano"
+              />
+            </div>
+            <div class="input-group">
+              <label for="completeDateBorn">Data di Nascita:</label>
+              <input
+                id="completeDateBorn"
+                type="date"
+                v-model="profileData.DateBorn"
+                required
+                class="cute-input"
+              />
+            </div>
+          </div>
+          <button type="submit" class="modal-button">Salva e Continua</button>
+        </form>
+      </div>
+    </div>
+
+    <div v-if="!showProfileCompletion" class="userlist-card">
       <div class="header-section">
         <h2 class="title">Lista Utenti</h2>
         <button class="filter-button" @click="logout">Logout</button>
@@ -275,6 +308,13 @@ export default {
       favorites: [],
       userId: null,
       statuses: [],
+      showProfileCompletion: false,
+      profileData: {
+        Position: "",
+        DateBorn: "",
+        Password: ""
+      },
+      currentUserDetails: null
     };
   },
   methods: {
@@ -285,9 +325,85 @@ export default {
         });
         this.userData = response.data;
         this.userId = this.userData.userId.toString();
+        
+        // Get full user details to check required fields
+        await this.checkRequiredFields();
       } catch (error) {
         console.error("Errore nel recupero dei dati utente:", error);
         this.$router.push("/");
+      }
+    },
+    async checkRequiredFields() {
+      try {
+        // Get the current user's full details
+        const users = await this.getUserById(this.userId);
+        if (users && users.length > 0) {
+          this.currentUserDetails = users[0];
+          
+          // Check if required fields are missing
+          if (!this.currentUserDetails.Position || !this.currentUserDetails.DateBorn) {
+            // Set initial values if they exist
+            this.profileData.Position = this.currentUserDetails.Position || "";
+            this.profileData.DateBorn = this.currentUserDetails.DateBorn || "";
+            
+            // Show profile completion modal
+            this.showProfileCompletion = true;
+          } else {
+            // All required fields are present, proceed normally
+            await this.recuperaUtenti();
+            this.favorite();
+            this.setupWebSocket();
+          }
+        }
+      } catch (error) {
+        console.error("Errore nel controllo dei campi obbligatori:", error);
+      }
+    },
+    async getUserById(userId) {
+      try {
+        const response = await axios.get(`http://localhost:3000/users?id=${userId}`, {
+          headers: { userId: this.userId },
+          withCredentials: true,
+        });
+        return response.data;
+      } catch (error) {
+        console.error("Errore nel recupero dettagli utente:", error);
+        return null;
+      }
+    },
+    async completeProfile() {
+      try {
+        // Ensure we have the password from the current user details
+        this.profileData.Password = this.currentUserDetails.Password || "";
+        
+        // Update user with the required fields
+        await axios.put(
+          `http://localhost:3000/users/${this.userId}`,
+          {
+            ...this.currentUserDetails,
+            Position: this.profileData.Position,
+            DateBorn: this.profileData.DateBorn,
+            Password: this.profileData.Password,
+          },
+          {
+            headers: {
+              userId: this.userId,
+            },
+            withCredentials: true,
+          }
+        );
+        
+        // Hide the profile completion modal
+        this.showProfileCompletion = false;
+        
+        // Load the main content
+        await this.recuperaUtenti();
+        this.favorite();
+        this.setupWebSocket();
+        
+      } catch (error) {
+        console.error("Errore nell'aggiornamento del profilo:", error);
+        alert("Impossibile aggiornare il profilo. Riprova più tardi.");
       }
     },
     async recuperaUtenti() {
@@ -315,8 +431,14 @@ export default {
 
         // Filter out admin users before setting the users list
         this.utenti = response.filter((user) => !user.isAdmin);
+        
+        // Only filter out Twitch users, don't apply any other filtering
+        // that might exclude regular login users
         this.utenti = this.utenti.filter((user) => !user.emailTwitch);
+        
         this.utentiFiltrati = this.utenti;
+        
+        console.log("Users loaded:", this.utenti.length);
       } catch (error) {
         console.error("Errore nel recupero degli utenti:", error);
         alert("Impossibile recuperare gli utenti.");
@@ -528,11 +650,7 @@ export default {
     },
   },
   mounted() {
-    this.getUserData().then(() => {
-      this.recuperaUtenti();
-      this.favorite();
-      this.setupWebSocket();
-    });
+    this.getUserData();
   },
 };
 </script>
@@ -569,6 +687,15 @@ export default {
 .title {
   font-size: 24px;
   margin: 0;
+}
+
+/* Profile Completion Modal */
+.profile-completion-modal .modal-content {
+  max-width: 500px;
+}
+
+.profile-completion-modal p {
+  margin-bottom: 20px;
 }
 
 /* Sezione Filtri */

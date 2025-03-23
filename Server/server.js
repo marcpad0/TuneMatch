@@ -423,7 +423,7 @@ app.post('/users', async (req, res) => {
  *         description: Errore del server
  */
 
-// Login
+// Improve the /login endpoint to properly integrate with Passport
 app.post('/login', async (req, res) => {
   const { Username, Password } = req.body;
 
@@ -437,11 +437,26 @@ app.post('/login', async (req, res) => {
       return res.status(401).send({ message: 'Credenziali non valide' });
     }
 
+    // Set session data
     req.session.authenticated = true;
     req.session.user = {
       id: user.id,
       isAdmin: user.isAdmin === 1
     };
+
+    // Also log in with Passport for consistency with OAuth flows
+    req.login({
+      id: user.id,
+      Username: user.Username,
+      emailSpotify: user.emailSpotify,
+      emailTwitch: user.emailTwitch,
+      emailGoogle: user.emailGoogle,
+      isAdmin: user.isAdmin
+    }, (err) => {
+      if (err) {
+        console.error('Error in Passport login:', err);
+      }
+    });
 
     // Mark user online
     setUserOnline(user.id, true);
@@ -490,6 +505,11 @@ app.post('/logout', (req, res) => {
  *     tags: [Users]
  *     parameters:
  *       - in: query
+ *         name: id
+ *         schema:
+ *           type: integer
+ *         description: Filtra per ID utente
+ *       - in: query
  *         name: Position
  *         schema:
  *           type: string
@@ -512,13 +532,24 @@ app.post('/logout', (req, res) => {
  *         description: Errore del server
  */
 
-// Get users with filters
+// Get users with filters - Updated to include ID filter
 app.get('/users', async (req, res) => {
-  const { Position, DateBorn } = req.query;
+  const { id, Position, DateBorn } = req.query;
 
   try {
-    const usersList = await db.getUsers({ Position, DateBorn });
-    res.send(usersList);
+    if (id) {
+      // If ID is provided, get specific user
+      const user = await db.getUserById(id);
+      if (user) {
+        res.send([user]); // Return as array to maintain consistent response format
+      } else {
+        res.send([]); // User not found, return empty array
+      }
+    } else {
+      // Otherwise get filtered list
+      const usersList = await db.getUsers({ Position, DateBorn });
+      res.send(usersList);
+    }
   } catch (err) {
     console.error('Errore nel recupero utenti:', err.message);
     res.status(500).send({ message: 'Errore del server.' });
@@ -809,18 +840,40 @@ app.get('/auth/google/callback',
  *         description: Non autenticato
  */
 
-// Get Authenticated User Info
-app.get('/auth/me', (req, res) => {
-  if (!req.isAuthenticated()) {
-    return res.status(401).send({ message: 'Not authenticated' });
+// Update the /auth/me endpoint to handle regular logins
+app.get('/auth/me', async (req, res) => {
+  // Check if authenticated via Passport (OAuth logins)
+  if (req.isAuthenticated()) {
+    return res.send({
+      userId: req.user.id,
+      isAdmin: req.user.isAdmin === 1,
+      emailSpotify: req.user.emailSpotify || null,
+      emailTwitch: req.user.emailTwitch || null,
+      emailGoogle: req.user.emailGoogle || null
+    });
   }
-  res.send({
-    userId: req.user.id,
-    isAdmin: req.user.isAdmin === 1,
-    emailSpotify: req.user.emailSpotify || null,
-    emailTwitch: req.user.emailTwitch || null,
-    emailGoogle: req.user.emailGoogle || null // Added emailGoogle
-  });
+  
+  // Check if authenticated via session (regular login)
+  if (req.session && req.session.authenticated && req.session.user) {
+    try {
+      // Get full user details from database
+      const user = await db.getUserById(req.session.user.id);
+      if (user) {
+        return res.send({
+          userId: user.id,
+          isAdmin: user.isAdmin === 1,
+          emailSpotify: user.emailSpotify || null,
+          emailTwitch: user.emailTwitch || null,
+          emailGoogle: user.emailGoogle || null
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching user data:', err);
+    }
+  }
+  
+  // Not authenticated by either method
+  return res.status(401).send({ message: 'Not authenticated' });
 });
 
 app.get('/login/spotify', (req, res) => {

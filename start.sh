@@ -21,6 +21,13 @@ fi
 
 echo "Using Docker Compose command: $DOCKER_COMPOSE_CMD"
 
+# Check if .env file exists
+if [ ! -f ".env" ]; then
+    echo "Error: .env file is missing"
+    echo "Please create a .env file with the required API configuration"
+    exit 1
+fi
+
 # Build and start the containers
 echo "Building and starting Docker containers..."
 $DOCKER_COMPOSE_CMD up --build -d
