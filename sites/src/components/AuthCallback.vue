@@ -12,13 +12,18 @@ export default {
   name: "AuthCallback",
   async mounted() {
     try {
-      // Just verify the session is set
+      // Get user data including admin status
       const response = await axios.get("http://localhost:3000/auth/me", {
         withCredentials: true,
       });
 
       if (response.data) {
-        this.$router.push("/users");
+        // Check if user is admin and redirect accordingly
+        if (response.data.isAdmin) {
+          this.$router.push("/admin");
+        } else {
+          this.$router.push("/users");
+        }
       } else {
         throw new Error("Authentication failed");
       }

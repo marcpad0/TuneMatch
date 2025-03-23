@@ -35,7 +35,7 @@
         </button>
       </div>
 
-<!--       Add this after Spotify login button
+      <!--Add this after Spotify login button
       <div class="Twitch-login">
         <button @click="loginWithTwitch" class="Twitch-button">
           <img src="../assets/twitch-logo.png" alt="Twitch Logo" />
@@ -71,9 +71,9 @@ export default {
     };
   },
   methods: {
-    // Inside the loginUser method in todo-item2.vue
     async loginUser() {
       try {
+        // First login
         await axios.post(
           "http://localhost:3000/login",
           {
@@ -81,12 +81,21 @@ export default {
             Password: this.password,
           },
           {
-            withCredentials: true, // Important for cookies
+            withCredentials: true,
           }
         );
 
-        // Redirect to UserList
-        this.$router.push("/users");
+        // Then check if the user is admin
+        const response = await axios.get("http://localhost:3000/auth/me", {
+          withCredentials: true,
+        });
+
+        // Redirect based on admin status
+        if (response.data && response.data.isAdmin) {
+          this.$router.push("/admin");
+        } else {
+          this.$router.push("/users");
+        }
       } catch (error) {
         console.error(error);
         if (error.response?.data?.message) {
