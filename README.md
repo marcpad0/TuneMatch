@@ -110,6 +110,7 @@ Questa guida spiega come installare Docker, configurare Docker Compose e avviare
 Prima di iniziare, assicurati di avere quanto segue:
 
 *   Un computer con sistema operativo Windows, Linux o macOS.
+*   Scaricato la repository di github sul tuo PC
 *   Docker e Docker Compose installati.
 *   Un file `.env` configurato con le credenziali API necessarie (Spotify, Twitch, Google OAuth).
 
