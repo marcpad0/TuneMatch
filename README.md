@@ -255,12 +255,7 @@ Docker Compose è incluso in Docker Desktop. Non è necessaria un'installazione 
 1.  **Scarica il Binario di Docker Compose:**
 
     ```
-    sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-    ```
-
-2.  **Applica i Permessi di Esecuzione:**
-
-    ```
+    sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
     sudo chmod +x /usr/local/bin/docker-compose
     ```
 
