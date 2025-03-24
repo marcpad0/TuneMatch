@@ -110,7 +110,30 @@ Questa guida spiega come installare Docker, configurare Docker Compose e avviare
 Prima di iniziare, assicurati di avere quanto segue:
 
 *   Un computer con sistema operativo Windows, Linux o macOS.
-*   Scaricato la repository di github sul tuo PC
+*  Git (per scaricare la repository):
+    Git è un sistema di controllo versione distribuito. Ti servirà per scaricare ("clonare") la repository del progetto da GitHub.
+
+    *   **Download e Installazione di Git:**
+        *   **Windows:** Scarica l'installer di Git dal sito ufficiale: [https://git-scm.com/download/win](https://git-scm.com/download/win) ed esegui l'installazione. Durante l'installazione, puoi lasciare le opzioni predefinite, a meno che tu non abbia esigenze specifiche.
+        *   **Linux:** La maggior parte delle distribuzioni Linux ha Git nei repository ufficiali.  Puoi installarlo usando il gestore di pacchetti della tua distribuzione. Ecco alcuni esempi:
+            *   **Ubuntu:** `sudo apt update && sudo apt install git`
+        *   **macOS:** Puoi installare Git in diversi modi:
+            *   **Homebrew (consigliato):** Se hai Homebrew installato (gestore di pacchetti per macOS), apri il terminale e digita: `brew install git`
+            *   **Installer ufficiale:** Scarica l'installer dal sito ufficiale: [https://git-scm.com/download/mac](https://git-scm.com/download/mac)
+            *   **Xcode Command Line Tools:**  Git viene spesso incluso con gli Xcode Command Line Tools.  Puoi installarli aprendo il terminale e digitando: `xcode-select --install`
+
+    *   **Verifica dell'Installazione:** Dopo l'installazione, apri un terminale (o prompt dei comandi su Windows) e digita: `git --version`.  Dovresti vedere la versione di Git installata.
+
+*   Clonazione della Repository:
+    Una volta installato Git, puoi scaricare il codice del progetto da GitHub. Apri un terminale (o prompt dei comandi) e segui questi passaggi:
+      *   **git clone**: Nella cartella in cui desideri salvare il progetto digita:
+        
+           ```
+           git clone https://github.com/marcpad0/TuneMatch.git
+           cd TuneMatch
+           ``` 
+           Questo comando creerà una nuova cartella (con lo stesso nome della repository) contenente tutti i file del progetto.
+
 *   Docker e Docker Compose installati.
 *   Un file `.env` configurato con le credenziali API necessarie (Spotify, Twitch, Google OAuth).
 
