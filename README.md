@@ -192,7 +192,7 @@ USE_MOCK_DB=false
 
     *   Il comando dovrebbe restituire la versione installata di Docker.
 
-### Linux
+### Linux (Ubuntu)
 
 Il processo di installazione di Docker su Linux varia a seconda della distribuzione. Per Ubuntu, segui questi passaggi:
 
@@ -226,7 +226,7 @@ Il processo di installazione di Docker su Linux varia a seconda della distribuzi
 
 Docker Compose è incluso in Docker Desktop. Non è necessaria un'installazione aggiuntiva.
 
-### Linux
+### Linux (Ubuntu)
 
 1.  **Scarica il Binario di Docker Compose:**
 
@@ -271,7 +271,7 @@ Questo script eseguirà:
 *   Costruisce e avvia i container.
 *   Conferma che i servizi sono in esecuzione.
 
-#### Linux/macOS
+#### Linux(Ubuntu)/macOS
 
 **Utilizzo di `start.sh`:**
 
