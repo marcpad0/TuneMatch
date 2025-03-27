@@ -61,7 +61,7 @@ router.beforeEach(async (to, from, next) => {
 
   try {
     const response = await axios.get(
-      "http://localhost:3000/auth/check-session",
+      "/auth/check-session",
       {
         withCredentials: true,
       }

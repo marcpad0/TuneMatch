@@ -70,9 +70,10 @@ console.log('Google Callback URL:', GOOGLE_CALLBACK_URL);
 // Middleware Configuration
 // =====================
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'dist')));
 
 app.use(cors({
-  origin: ['http://localhost:8080', 'https://marcpado.it', 'http://localhost:8081'],
+  origin: ['http://localhost:8080'],
   credentials: true,
 }));
 
@@ -768,7 +769,7 @@ app.get('/auth/spotify/callback',
 
     setUserOnline(req.user.id, true);
 
-    res.redirect(FRONTEND_CALLBACK_URL || 'http://localhost:8080/auth/callback');
+    res.redirect(FRONTEND_CALLBACK_URL || '/auth/callback');
   }
 );
 
@@ -794,7 +795,7 @@ app.get('/auth/twitch/callback',
 
     setUserOnline(req.user.id, true);
 
-    res.redirect(FRONTEND_CALLBACK_URL || 'http://localhost:8080/auth/callback');
+    res.redirect(FRONTEND_CALLBACK_URL || '/auth/callback');
   }
 );
 
@@ -823,7 +824,7 @@ app.get('/auth/google/callback',
 
     setUserOnline(req.user.id, true);
 
-    res.redirect(FRONTEND_CALLBACK_URL || 'http://localhost:8080/auth/callback');
+    res.redirect(FRONTEND_CALLBACK_URL || '/auth/callback');
   }
 );
 
@@ -878,21 +879,21 @@ app.get('/auth/me', async (req, res) => {
 
 app.get('/login/spotify', (req, res) => {
   if (req.isAuthenticated()) {
-    return res.redirect('http://localhost:8080/auth/callback');
+    return res.redirect('/auth/callback');
   }
   res.redirect('/auth/spotify');
 });
 
-app.get('/login/twitch', (req, res) => { // Updated to Twitch
+app.get('/login/twitch', (req, res) => {
   if (req.isAuthenticated()) {
-    return res.redirect('http://localhost:8080/auth/callback');
+    return res.redirect('/auth/callback');
   }
   res.redirect('/auth/twitch');
 });
 
-app.get('/login/google', (req, res) => { // New route for Google login
+app.get('/login/google', (req, res) => {
   if (req.isAuthenticated()) {
-    return res.redirect('http://localhost:8080/auth/callback');
+    return res.redirect('/auth/callback');
   }
   res.redirect('/auth/google');
 });
@@ -998,6 +999,12 @@ app.use('/users', (req, res, next) => {
 // Home Route
 app.get('/', (req, res) => {
   res.send('Benvenuto al server Express!');
+});
+
+// Add this after your other auth routes
+app.get('/auth/callback', (req, res) => {
+  // Serve your authentication success page or redirect to the frontend app
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 // =====================

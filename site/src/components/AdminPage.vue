@@ -104,7 +104,7 @@ export default {
   methods: {
     async loadUsers() {
       try {
-        const response = await axios.get("http://localhost:3000/users", {
+        const response = await axios.get("/users", {
           withCredentials: true,
         });
         this.users = response.data;
@@ -124,7 +124,7 @@ export default {
     async updateUser() {
       try {
         await axios.put(
-          `http://localhost:3000/users/${this.editingUser.id}`,
+          `/users/${this.editingUser.id}`,
           this.editingUser,
           {
             withCredentials: true,
@@ -144,7 +144,7 @@ export default {
     async deleteUser(userId) {
       if (confirm("Are you sure you want to delete this user?")) {
         try {
-          await axios.delete(`http://localhost:3000/users/${userId}`, {
+          await axios.delete(`/users/${userId}`, {
             withCredentials: true,
             headers: {
               isadmin: "true",
@@ -165,7 +165,7 @@ export default {
     async logout() {
       try {
         await axios.post(
-          "http://localhost:3000/logout",
+          "/logout",
           {},
           {
             withCredentials: true,

@@ -103,7 +103,7 @@ export default {
   methods: {
     async registerUser() {
       try {
-        const response = await axios.post("http://localhost:3000/users", {
+        const response = await axios.post("/users", {
           Username: this.username,
           emailSpotify: this.emailSpotify,
           Position: this.position,
@@ -130,13 +130,13 @@ export default {
       }
     },
     loginWithSpotify() {
-      window.location.href = "http://localhost:3000/auth/spotify";
+      window.location.href = "/auth/spotify";
     },
     loginWithTwitch() {
-      window.location.href = "http://localhost:3000/auth/Twitch";
+      window.location.href = "/auth/Twitch";
     },
     loginWithGoogle() {
-      window.location.href = "http://localhost:3000/auth/google";
+      window.location.href = "/auth/google";
     },
   },
 };

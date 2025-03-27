@@ -1,4 +1,4 @@
-# sites
+# site2
 
 ## Project setup
 ```
