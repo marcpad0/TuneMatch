@@ -13,7 +13,7 @@ export default {
   async mounted() {
     try {
       // Get user data including admin status
-      const response = await axios.get("http://localhost:3000/auth/me", {
+      const response = await axios.get("/auth/me", {
         withCredentials: true,
       });
 

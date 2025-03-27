@@ -75,7 +75,7 @@ export default {
       try {
         // First login
         await axios.post(
-          "http://localhost:3000/login",
+          "/login",
           {
             Username: this.username,
             Password: this.password,
@@ -86,7 +86,7 @@ export default {
         );
 
         // Then check if the user is admin
-        const response = await axios.get("http://localhost:3000/auth/me", {
+        const response = await axios.get("/auth/me", {
           withCredentials: true,
         });
 
@@ -106,13 +106,13 @@ export default {
       }
     },
     loginWithSpotify() {
-      window.location.href = "http://localhost:3000/login/spotify";
+      window.location.href = "/login/spotify";
     },
     loginWithTwitch() {
-      window.location.href = "http://localhost:3000/login/twitch";
+      window.location.href = "/login/twitch";
     },
     loginWithGoogle() {
-      window.location.href = "http://localhost:3000/login/google";
+      window.location.href = "/login/google";
     },
   },
 };

@@ -320,7 +320,7 @@ export default {
   methods: {
     async getUserData() {
       try {
-        const response = await axios.get("http://localhost:3000/auth/me", {
+        const response = await axios.get("/auth/me", {
           withCredentials: true,
         });
         this.userData = response.data;
@@ -361,7 +361,7 @@ export default {
     },
     async getUserById(userId) {
       try {
-        const response = await axios.get(`http://localhost:3000/users?id=${userId}`, {
+        const response = await axios.get(`/users?id=${userId}`, {
           headers: { userId: this.userId },
           withCredentials: true,
         });
@@ -378,7 +378,7 @@ export default {
         
         // Update user with the required fields
         await axios.put(
-          `http://localhost:3000/users/${this.userId}`,
+          `/users/${this.userId}`,
           {
             ...this.currentUserDetails,
             Position: this.profileData.Position,
@@ -410,7 +410,7 @@ export default {
       try {
         const response = await new Promise((resolve, reject) => {
           const xhr = new XMLHttpRequest();
-          xhr.open("GET", "http://localhost:3000/users", true);
+          xhr.open("GET", "/users", true);
           xhr.withCredentials = true;
           xhr.setRequestHeader("userId", this.userId);
 
@@ -465,7 +465,7 @@ export default {
     async aggiornaUtente() {
       try {
         await axios.put(
-          `http://localhost:3000/users/${this.utenteModificabile.id}`,
+          `/users/${this.utenteModificabile.id}`,
           {
             Username: this.utenteModificabile.Username,
             emailSpotify: this.utenteModificabile.emailSpotify,
@@ -506,7 +506,7 @@ export default {
       }
 
       try {
-        await axios.delete(`http://localhost:3000/users/${id}`, {
+        await axios.delete(`/users/${id}`, {
           headers: {
             userId: this.userId,
           },
@@ -540,7 +540,7 @@ export default {
     async logout() {
       try {
         await axios.post(
-          "http://localhost:3000/logout",
+          "/logout",
           {},
           {
             withCredentials: true,
@@ -566,7 +566,7 @@ export default {
 
       xhr.open(
         "GET",
-        `http://localhost:3000/users?${queryParams.toString()}`,
+        `/users?${queryParams.toString()}`,
         true
       );
       xhr.withCredentials = true;
@@ -598,7 +598,7 @@ export default {
     },
     favorite() {
       axios
-        .get("http://localhost:3000/favorites", {
+        .get("/favorites", {
           withCredentials: true,
         })
         .then((response) => {
