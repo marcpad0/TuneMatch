@@ -998,7 +998,7 @@ app.use('/users', (req, res, next) => {
 
 // Home Route
 app.get('/', (req, res) => {
-  res.send('Benvenuto al server Express!');
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 // Add this after your other auth routes
