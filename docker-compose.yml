@@ -5,25 +5,27 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
-    env_file:
-      - .env
     environment:
-      - NODE_ENV=development
-      - PORT=3000
-      - USE_MOCK_DB=false
+      - NODE_ENV
+      - PORT
+      - USE_MOCK_DB
+      - SPOTIFY_CLIENT_ID
+      - SPOTIFY_CLIENT_SECRET
+      - SPOTIFY_CALLBACK_URL
+      - TWITCH_CLIENT_ID
+      - TWITCH_CLIENT_SECRET
+      - TWITCH_CALLBACK_URL
+      - GOOGLE_CLIENT_ID
+      - GOOGLE_CLIENT_SECRET
+      - GOOGLE_CALLBACK_URL
     volumes:
       - ./Server:/app
       - /app/node_modules
 
-  frontend:
-    build:
-      context: ./sites
-      dockerfile: Dockerfile
-    ports:
-      - "8080:8080"
+  ngrok:
+    image: ngrok/ngrok:latest
+    command: http backend:3000 --authtoken=$NGROK_AUTHTOKEN
+    environment:
+      - NGROK_AUTHTOKEN
     depends_on:
       - backend
-    volumes:
-      - ./sites:/app
-      - /app/node_modules
-
