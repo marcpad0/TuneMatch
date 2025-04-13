@@ -9,6 +9,7 @@ services:
       - NODE_ENV=development
       - PORT=3000
       - USE_MOCK_DB=false
+      - JWT_SECRET=your_jwt_secret
       - SPOTIFY_CLIENT_ID=your_id
       - SPOTIFY_CLIENT_SECRET=your_secret
       - SPOTIFY_CALLBACK_URL=https://your.ngrok-free.app/auth/spotify/callback

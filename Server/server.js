@@ -13,6 +13,8 @@ const dotenv = require('dotenv');
 const http = require('http');
 const { Server } = require('ws'); // WebSocket server
 const path = require('path');
+const jwt = require('jsonwebtoken'); // Add JWT library
+const cookieParser = require('cookie-parser');
 
 // Load environment variables
 dotenv.config();
@@ -38,7 +40,8 @@ const {
   GOOGLE_CLIENT_SECRET,      
   GOOGLE_CALLBACK_URL,       
   SESSION_SECRET,
-  FRONTEND_CALLBACK_URL
+  FRONTEND_CALLBACK_URL,
+  JWT_SECRET = "tunematch_jwt_secret_key" // Add JWT secret with default
 } = process.env;
 
 // Validate Spotify Credentials
@@ -70,9 +73,11 @@ console.log('Google Callback URL:', GOOGLE_CALLBACK_URL);
 // Middleware Configuration
 // =====================
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'dist')));
+app.use(cookieParser());
 
 app.use(cors({
-  origin: ['http://localhost:8080', 'https://marcpado.it', 'http://localhost:8081'],
+  origin: ['http://localhost:8080'],
   credentials: true,
 }));
 
@@ -461,11 +466,81 @@ app.post('/login', async (req, res) => {
     // Mark user online
     setUserOnline(user.id, true);
 
-    res.send({ message: 'Login successful' });
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        id: user.id, 
+        username: user.Username,
+        isAdmin: user.isAdmin === 1
+      },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    // Set JWT token in a cookie
+    res.cookie('jwt_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // Use secure in production
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    });
+
+    // Send response with token (for client-side storage if needed)
+    res.send({ 
+      message: 'Login successful',
+      token: token 
+    });
   } catch (err) {
     console.error('Errore durante il login:', err.message);
     res.status(500).send({ message: 'Errore del server.' });
   }
+});
+
+/**
+ * @swagger
+ * /admin/test:
+ *   get:
+ *     summary: Admin-only test endpoint
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Test message
+ *       401:
+ *         description: Authentication token required
+ *       403:
+ *         description: Not authorized or invalid token
+ */
+app.get('/admin/test', (req, res, next) => {
+  // JWT verification middleware - check header or cookie
+  let token;
+  const authHeader = req.headers.authorization;
+  
+  if (authHeader) {
+    token = authHeader.split(' ')[1];
+  } else if (req.cookies.jwt_token) {
+    token = req.cookies.jwt_token;
+  }
+
+  if (!token) {
+    return res.status(401).json({ message: 'Authentication token required' });
+  }
+  
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(403).json({ message: 'Invalid or expired token' });
+    }
+    
+    if (!decoded.isAdmin) {
+      return res.status(403).json({ message: 'Admin privileges required' });
+    }
+    
+    req.user = decoded;
+    next();
+  });
+}, (req, res) => {
+  res.json({ message: 'test' });
 });
 
 /**
@@ -486,6 +561,9 @@ app.post('/logout', (req, res) => {
   if (req.session.user && req.session.user.id) {
     setUserOnline(req.session.user.id, false);
   }
+
+  // Clear the JWT token cookie
+  res.clearCookie('jwt_token');
 
   req.session.destroy((err) => {
     if (err) {
@@ -768,7 +846,7 @@ app.get('/auth/spotify/callback',
 
     setUserOnline(req.user.id, true);
 
-    res.redirect(FRONTEND_CALLBACK_URL || 'http://localhost:8080/auth/callback');
+    res.redirect(FRONTEND_CALLBACK_URL || '/auth/callback');
   }
 );
 
@@ -794,7 +872,7 @@ app.get('/auth/twitch/callback',
 
     setUserOnline(req.user.id, true);
 
-    res.redirect(FRONTEND_CALLBACK_URL || 'http://localhost:8080/auth/callback');
+    res.redirect(FRONTEND_CALLBACK_URL || '/auth/callback');
   }
 );
 
@@ -823,7 +901,7 @@ app.get('/auth/google/callback',
 
     setUserOnline(req.user.id, true);
 
-    res.redirect(FRONTEND_CALLBACK_URL || 'http://localhost:8080/auth/callback');
+    res.redirect(FRONTEND_CALLBACK_URL || '/auth/callback');
   }
 );
 
@@ -878,21 +956,21 @@ app.get('/auth/me', async (req, res) => {
 
 app.get('/login/spotify', (req, res) => {
   if (req.isAuthenticated()) {
-    return res.redirect('http://localhost:8080/auth/callback');
+    return res.redirect('/auth/callback');
   }
   res.redirect('/auth/spotify');
 });
 
-app.get('/login/twitch', (req, res) => { // Updated to Twitch
+app.get('/login/twitch', (req, res) => {
   if (req.isAuthenticated()) {
-    return res.redirect('http://localhost:8080/auth/callback');
+    return res.redirect('/auth/callback');
   }
   res.redirect('/auth/twitch');
 });
 
-app.get('/login/google', (req, res) => { // New route for Google login
+app.get('/login/google', (req, res) => {
   if (req.isAuthenticated()) {
-    return res.redirect('http://localhost:8080/auth/callback');
+    return res.redirect('/auth/callback');
   }
   res.redirect('/auth/google');
 });
@@ -997,7 +1075,13 @@ app.use('/users', (req, res, next) => {
 
 // Home Route
 app.get('/', (req, res) => {
-  res.send('Benvenuto al server Express!');
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+
+// Add this after your other auth routes
+app.get('/auth/callback', (req, res) => {
+  // Serve your authentication success page or redirect to the frontend app
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 // =====================

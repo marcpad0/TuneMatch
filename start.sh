@@ -21,23 +21,6 @@ fi
 
 echo "Using Docker Compose command: $DOCKER_COMPOSE_CMD"
 
-# Check if .env file exists. If not, create a placeholder .env file.
-if [ ! -f ".env" ]; then
-    echo ".env file not found. Creating a placeholder .env file..."
-    echo "NODE_ENV=development" > .env
-    echo "PORT=3000" >> .env
-    echo "SPOTIFY_CLIENT_ID=TUO_SPOTIFY_CLIENT_ID" >> .env
-    echo "SPOTIFY_CLIENT_SECRET=TUO_SPOTIFY_CLIENT_SECRET" >> .env
-    echo "SPOTIFY_CALLBACK_URL=http://localhost:3000/auth/spotify/callback" >> .env
-    echo "TWITCH_CLIENT_ID=TUO_TWITCH_CLIENT_ID" >> .env
-    echo "TWITCH_CLIENT_SECRET=TUO_TWITCH_CLIENT_SECRET" >> .env
-    echo "TWITCH_CALLBACK_URL=https://marcpado.it/auth/twitch/callback" >> .env
-    echo "GOOGLE_CLIENT_ID=TUO_GOOGLE_CLIENT_ID" >> .env
-    echo "GOOGLE_CLIENT_SECRET=TUO_GOOGLE_CLIENT_SECRET" >> .env
-    echo "GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback" >> .env
-    echo "USE_MOCK_DB=false" >> .env
-fi
-
 # Build and start the containers
 echo "Building and starting Docker containers..."
 $DOCKER_COMPOSE_CMD up --build -d
