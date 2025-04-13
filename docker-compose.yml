@@ -1,0 +1,31 @@
+services:
+  backend:
+    build:
+      context: ./Server
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - USE_MOCK_DB=false
+      - SPOTIFY_CLIENT_ID=your_id
+      - SPOTIFY_CLIENT_SECRET=your_secret
+      - SPOTIFY_CALLBACK_URL=https://your.ngrok-free.app/auth/spotify/callback
+      - TWITCH_CLIENT_ID=your_id
+      - TWITCH_CLIENT_SECRET=your_secret
+      - TWITCH_CALLBACK_URL=https://your.ngrok-free.app/auth/twitch/callback
+      - GOOGLE_CLIENT_ID=your_id
+      - GOOGLE_CLIENT_SECRET=your_secret
+      - GOOGLE_CALLBACK_URL=https://your.ngrok-free.app/auth/google/callback
+    volumes:
+      - ./Server:/app
+      - /app/node_modules
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    command: http backend:3000 --authtoken=$NGROK_AUTHTOKEN
+    environment:
+      - NGROK_AUTHTOKEN=<your_ngrok_auth_token>
+    depends_on:
+      - backend
