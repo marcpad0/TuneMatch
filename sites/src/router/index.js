@@ -5,6 +5,7 @@ import Login from "../components/todo-item2.vue";
 import UserList from "../components/UserList.vue";
 import AuthCallback from "../components/AuthCallback.vue"; // Import the new component
 import AdminPage from "../components/AdminPage.vue";
+import ProfilePage from "../components/ProfilePage.vue"; // Import the new component
 
 const routes = [
   {
@@ -28,7 +29,12 @@ const routes = [
     name: "auth-callback",
     component: AuthCallback,
   },
-  // Redirect any unknown paths to login
+  {
+    path: "/profile/:userId",
+    name: "profile",
+    component: ProfilePage,
+    props: true,
+  },
   {
     path: "/:pathMatch(.*)*",
     redirect: "/",

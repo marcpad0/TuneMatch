@@ -96,10 +96,10 @@
           class="user-card"
         >
           <div class="user-card-header">
-            <div>
+            <router-link :to="{ name: 'profile', params: { userId: utente.id }}" class="user-profile-link">
               <strong>{{ utente.Username }}</strong>
-              <span v-if="utente.isAdmin" class="admin-badge">Admin</span>
-            </div>
+            </router-link>
+            <span v-if="utente.isAdmin" class="admin-badge">Admin</span>
             <div class="user-actions">
               <button
                 v-if="puòModificare(utente)"
@@ -173,7 +173,9 @@
           <tbody>
             <tr v-for="utente in processedUtenti" :key="utente.id">
               <td>
-                {{ utente.Username }}
+                <router-link :to="{ name: 'profile', params: { userId: utente.id }}" class="user-profile-link">
+                  {{ utente.Username }}
+                </router-link>
                 <span v-if="utente.isAdmin" class="admin-badge">Admin</span>
               </td>
               <td>{{ utente.emailSpotify }}</td>
@@ -1098,6 +1100,32 @@ export default {
 
 .desktop-only {
   display: none;
+}
+
+.user-profile-link {
+  color: inherit;
+  text-decoration: none;
+  position: relative;
+}
+
+.user-profile-link:hover {
+  color: #42b983;
+}
+
+.user-profile-link:after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  bottom: -2px;
+  left: 0;
+  background-color: #42b983;
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.user-profile-link:hover:after {
+  transform: scaleX(1);
 }
 
 @media (min-width: 768px) {

@@ -705,6 +705,117 @@ app.put('/users/:id', async (req, res) => {
   }
 });
 
+
+// Get specific user by ID
+app.get('/users/:id', async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await db.getUserById(userId);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Remove sensitive information
+    delete user.Password;
+    
+    res.json(user);
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get user's favorite music
+app.get('/users/:id/favorites', async (req, res) => {
+  try {
+    const userId = req.params.id;
+    // This would typically fetch from a database
+    // Mocking data for now
+    res.json({
+      tracks: [
+        { 
+          name: "Blinding Lights", 
+          artist: "The Weeknd", 
+          image: "https://i.scdn.co/image/ab67616d0000b273c5649add07ed3720be9d5526",
+          spotifyUrl: "https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b"
+        },
+        { 
+          name: "As It Was", 
+          artist: "Harry Styles", 
+          image: "https://i.scdn.co/image/ab67616d0000b273b46f74097655d7f353caab14",
+          spotifyUrl: "https://open.spotify.com/track/4Dvkj6JhhA12EX05fT7y2e"
+        },
+        { 
+          name: "Bad Habits", 
+          artist: "Ed Sheeran", 
+          image: "https://i.scdn.co/image/ab67616d0000b273ef24c3fdbf856340d55cfeb2",
+          spotifyUrl: "https://open.spotify.com/track/3rmo8F54jFF8OgYsqTxm5d"
+        },
+        { 
+          name: "Stay", 
+          artist: "The Kid LAROI, Justin Bieber", 
+          image: "https://i.scdn.co/image/ab67616d0000b273be08a5ed1d1a230292ae669c",
+          spotifyUrl: "https://open.spotify.com/track/5HCyWlXZPP0y6Gqq8TgA20"
+        },
+        { 
+          name: "Heat Waves", 
+          artist: "Glass Animals", 
+          image: "https://i.scdn.co/image/ab67616d0000b273712701c5e263efc8726b1464",
+          spotifyUrl: "https://open.spotify.com/track/02MWAaffLxlfxAUY7c5dvx"
+        }
+      ],
+      artists: [
+        { 
+          name: "The Weeknd", 
+          image: "https://i.scdn.co/image/ab6761610000e5eb64acede1563953f293d4019b",
+          genres: ["pop", "r&b"]
+        },
+        { 
+          name: "Dua Lipa", 
+          image: "https://i.scdn.co/image/ab6761610000e5eb2f71646f25e3a8c899d07c0d",
+          genres: ["pop", "dance pop"]
+        },
+        { 
+          name: "Harry Styles", 
+          image: "https://i.scdn.co/image/ab6761610000e5eb649496768c6f84a6b46a85bc",
+          genres: ["pop", "rock"]
+        },
+        { 
+          name: "Taylor Swift", 
+          image: "https://i.scdn.co/image/ab6761610000e5eb5a00969a4698c3132a15fbb0",
+          genres: ["pop", "country pop"]
+        },
+        { 
+          name: "Drake", 
+          image: "https://i.scdn.co/image/ab6761610000e5eb4293385d324db8558179afd9",
+          genres: ["hip hop", "rap"]
+        }
+      ],
+      genres: ["Pop", "R&B", "Hip Hop", "Rock", "Electronic", "Indie", "Dance"]
+    });
+  } catch (error) {
+    console.error('Error fetching favorites:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Calculate music compatibility between users
+app.get('/users/compatibility/:user1Id/:user2Id', async (req, res) => {
+  try {
+    // This would typically use an algorithm comparing user preferences
+    // Mocking data for now
+    res.json({
+      score: Math.floor(Math.random() * 50) + 50, // Random score between 50-99
+      commonArtists: ["The Weeknd", "Dua Lipa"],
+      commonGenres: ["Pop", "R&B"]
+    });
+  } catch (error) {
+    console.error('Error calculating compatibility:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 /**
  * @swagger
  * /users/{id}:
