@@ -1,20 +1,26 @@
 <template>
   <div id="app">
-    <nav>
-      <ul class="nav-links">
-        <li><router-link to="/register">Register</router-link></li>
-        <li><router-link to="/">Login</router-link></li>
-      </ul>
+    <nav class="navbar">
+      <div class="navbar-container">
+        <router-link to="/" class="navbar-brand">
+          <span class="logo-icon">♪</span>
+          <span class="brand-name">TuneMatch</span>
+        </router-link>
+        
+        <div class="navbar-links">
+          <router-link to="/register">Register</router-link>
+          <router-link to="/">Login</router-link>
+        </div>
+      </div>
     </nav>
     <main class="content">
-      <!-- Your login form or component will be rendered here -->
       <router-view />
     </main>
   </div>
 </template>
 
 <style>
-@import url("https://fonts.googleapis.com/css2?family=Quicksand:wght@500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap");
 
 #app {
   font-family: "Quicksand", sans-serif;
@@ -22,46 +28,80 @@
   background-color: #f0f4f8;
   margin: 0;
   padding: 0;
+  min-height: 100vh;
 }
 
-nav {
-  background-color: #fff;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  padding: 15px 30px;
+.navbar {
+  background: linear-gradient(135deg, #8e44ad, #3498db);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 12px 0;
   position: sticky;
   top: 0;
   z-index: 1000;
 }
 
-.nav-links {
-  list-style: none;
+.navbar-container {
   display: flex;
-  justify-content: flex-end;
-  margin: 0;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
 }
 
-.nav-links li {
-  margin-left: 20px;
-}
-
-.nav-links a {
+.navbar-brand {
+  display: flex;
+  align-items: center;
   text-decoration: none;
-  color: #2c3e50;
+  color: white;
+}
+
+.logo-icon {
+  font-size: 28px;
+  margin-right: 8px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+.brand-name {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.navbar-links {
+  display: flex;
+  gap: 20px;
+}
+
+.navbar-links a {
+  color: white;
+  text-decoration: none;
   font-weight: 500;
-  transition: color 0.3s;
+  padding: 8px 16px;
+  border-radius: 20px;
+  transition: all 0.3s ease;
 }
 
-.nav-links a:hover {
-  color: #42b983;
+.navbar-links a:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
 }
 
-.nav-links a.router-link-exact-active {
-  color: #42b983;
+.navbar-links a.router-link-exact-active {
+  background-color: white;
+  color: #8e44ad;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 /* Adjusted styles for main content */
 main.content {
-  min-height: calc(100vh - 70px); /* Adjust as per the height of your nav */
+  min-height: calc(100vh - 64px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -73,8 +113,14 @@ main.content {
   max-width: 400px;
   padding: 40px 30px;
   background-color: #fff;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
   border-radius: 12px;
+  animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Optional: Add some margin for small screens */
@@ -82,6 +128,16 @@ main.content {
   .login-container {
     margin: 20px;
     padding: 30px 20px;
+  }
+  
+  .navbar-container {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .navbar-links {
+    width: 100%;
+    justify-content: center;
   }
 }
 </style>

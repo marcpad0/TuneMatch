@@ -1,5 +1,12 @@
 <template>
   <div class="profile-page">
+    <div class="profile-navigation">
+      <button class="back-button" @click="goBack">
+        <span class="back-icon">←</span>
+        <span>Torna indietro</span>
+      </button>
+    </div>
+
     <div class="profile-background">
       <div class="wave"></div>
     </div>
@@ -16,35 +23,39 @@
       <button @click="fetchUserProfile" class="retry-button">
         <span class="icon">↻</span> Try Again
       </button>
+      <button @click="goBack" class="retry-button">
+        <span class="icon">←</span> Go Back
+      </button>
     </div>
 
     <div v-else class="profile-content">
-      <div class="profile-header-card">
+      <div class="profile-header-card" v-if="userData">
         <div class="profile-cover-gradient"></div>
-        
-        <!-- Profile Avatar & Basic Info -->
         <div class="profile-header">
           <div class="avatar-container">
             <div class="avatar-wrapper">
-              <div class="avatar">{{ getUserInitials }}</div>
+              <div class="avatar">
+                {{ getUserInitials() }}
+              </div>
             </div>
           </div>
           
           <div class="user-info">
-            <h1 class="username">{{ user.Username || 'Unknown User' }}</h1>
+            <h2 class="username">{{ userData.Username }}</h2>
             <div class="user-meta">
-              <div class="meta-item">
-                <span class="icon">📍</span> {{ user.Position || 'No location' }}
-              </div>
-              <div class="meta-item">
-                <span class="icon">🗓️</span> Since {{ formatDate(user.DateBorn) }}
-              </div>
+              <span class="meta-item">
+                <span class="icon">📍</span>
+                {{ userData.Position || 'No Location' }}
+              </span>
+              <span class="meta-item">
+                <span class="icon">🎂</span>
+                {{ formatDate(userData.DateBorn) || 'No Birthday' }}
+              </span>
             </div>
-
-            <!-- Action Buttons -->
+            
             <div class="action-buttons">
-              <button class="secondary-btn">
-                <span class="icon">👥</span> Follow
+              <button class="secondary-btn" @click="viewPreviousUser" v-if="hasPreviousUser">
+                <span class="icon">👤</span> Utente Precedente
               </button>
             </div>
           </div>
@@ -218,6 +229,7 @@ export default {
   data() {
     return {
       user: {},
+      userData: null,
       loading: true,
       error: null,
       favorites: {
@@ -234,21 +246,33 @@ export default {
       showMessageDialog: false,
       messageContent: "",
       socket: null,
+      userOnlineStatus: false,
+      previousUsers: [],
+      ws: null,
     };
   },
   computed: {
-    getUserInitials() {
-      if (!this.user.Username) return "?";
-      return this.user.Username.charAt(0).toUpperCase();
-    },
+    hasPreviousUser() {
+      return this.previousUsers.length > 0;
+    }
   },
-  mounted() {
+  async mounted() {
+    try {
+      await this.fetchUserData(this.userId);
+      this.connectToSocket();
+    } catch (error) {
+      this.error = "Failed to load user profile";
+      this.loading = false;
+      console.error(error);
+    }
     this.fetchUserProfile();
-    this.connectToSocket();
   },
   beforeUnmount() {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       this.socket.close();
+    }
+    if (this.ws) {
+      this.ws.close();
     }
   },
   methods: {
@@ -296,6 +320,21 @@ export default {
       }
     },
     
+    async fetchUserData(userId) {
+      this.loading = true;
+      try {
+        const response = await axios.get(`http://localhost:3000/users/${userId}`, {
+          withCredentials: true
+        });
+        this.userData = response.data;
+        this.loading = false;
+      } catch (error) {
+        this.error = "Failed to load user data";
+        this.loading = false;
+        throw error;
+      }
+    },
+
     connectToSocket() {
       // Use WebSocket directly instead of Socket.IO
       try {
@@ -319,6 +358,7 @@ export default {
                 online: data.online,
                 currentTrack: data.currentTrack
               };
+              this.userOnlineStatus = data.online;
             }
           } catch (error) {
             console.error("Error parsing WebSocket message:", error);
@@ -383,6 +423,35 @@ export default {
       if (score >= 60) return "Good Match";
       if (score >= 45) return "Fair Match";
       return "Some Similarities";
+    },
+
+    goBack() {
+      this.$router.back();
+    },
+    
+    viewPreviousUser() {
+      if (this.previousUsers.length) {
+        const prevUserId = this.previousUsers.pop();
+        this.$router.push(`/profile/${prevUserId}`);
+      }
+    },
+
+    getUserInitials() {
+      if (!this.userData || !this.userData.Username) return '?';
+      return this.userData.Username.charAt(0).toUpperCase();
+    }
+  },
+  watch: {
+    userId: {
+      immediate: true,
+      handler(newId, oldId) {
+        if (oldId && oldId !== newId) {
+          this.previousUsers.push(oldId);
+        }
+        if (newId) {
+          this.fetchUserData(newId);
+        }
+      }
     }
   }
 };
@@ -1183,6 +1252,46 @@ export default {
 .send-btn:disabled {
   background: #a1a1aa;
   cursor: not-allowed;
+}
+
+/* ===== PROFILE NAVIGATION ===== */
+.profile-navigation {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 100;
+}
+
+.back-button {
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #4466ee;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.back-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: white;
+}
+
+.back-icon {
+  font-size: 16px;
+  transition: transform 0.3s ease;
+}
+
+.back-button:hover .back-icon {
+  transform: translateX(-3px);
 }
 
 /* ===== RESPONSIVE STYLES ===== */
