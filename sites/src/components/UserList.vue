@@ -36,6 +36,14 @@
     <div v-if="!showProfileCompletion" class="userlist-card">
       <div class="header-section">
         <h2 class="title">Lista Utenti</h2>
+        <div class="search-container">
+          <input
+            type="text"
+            v-model="searchTerm"
+            placeholder="Cerca utenti..."
+            class="cute-input search-input"
+          />
+        </div>
         <button class="filter-button" @click="logout">Logout</button>
       </div>
 
@@ -43,6 +51,15 @@
         <h3 class="subtitle">Filtra Utenti</h3>
         <form @submit.prevent="applicaFiltri">
           <div class="filters-grid">
+            <div class="input-group">
+              <label for="filterUsername">Username:</label>
+              <input
+                id="filterUsername"
+                v-model="filtri.Username"
+                placeholder="es. mario.rossi"
+                class="cute-input"
+              />
+            </div>
             <div class="input-group">
               <label for="position">Posizione:</label>
               <input
@@ -74,12 +91,15 @@
       <!-- Mobile Cards -->
       <div class="user-cards-mobile">
         <div
-          v-for="utente in utentiFiltrati"
+          v-for="utente in processedUtenti"
           :key="utente.id"
           class="user-card"
         >
           <div class="user-card-header">
-            <strong>{{ utente.Username }}</strong>
+            <div>
+              <strong>{{ utente.Username }}</strong>
+              <span v-if="utente.isAdmin" class="admin-badge">Admin</span>
+            </div>
             <div class="user-actions">
               <button
                 v-if="puòModificare(utente)"
@@ -102,6 +122,7 @@
             <p><strong>Email Google:</strong> {{ utente.emailGoogle }}</p>
             <p><strong>Posizione:</strong> {{ utente.Position }}</p>
             <p><strong>Data di Nascita:</strong> {{ utente.DateBorn }}</p>
+            <p v-if="utente.isAdmin"><strong>Ruolo:</strong> Amministratore</p>
             <p class="status-line">
               <strong>Status:</strong>
               <span
@@ -133,19 +154,28 @@
         <table class="user-table">
           <thead>
             <tr>
-              <th>Username</th>
+              <th @click="sortBy('Username')" class="sortable-header">
+                Username <span v-if="sortKey === 'Username'">{{ sortAsc ? '▲' : '▼' }}</span>
+              </th>
               <th>Email Spotify</th>
               <th>Email Google</th>
-              <th>Posizione</th>
-              <th>Data di Nascita</th>
+              <th @click="sortBy('Position')" class="sortable-header">
+                Posizione <span v-if="sortKey === 'Position'">{{ sortAsc ? '▲' : '▼' }}</span>
+              </th>
+              <th @click="sortBy('DateBorn')" class="sortable-header">
+                Data di Nascita <span v-if="sortKey === 'DateBorn'">{{ sortAsc ? '▲' : '▼' }}</span>
+              </th>
               <th>Status</th>
               <th>Listening</th>
               <th>Azioni</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="utente in utentiFiltrati" :key="utente.id">
-              <td>{{ utente.Username }}</td>
+            <tr v-for="utente in processedUtenti" :key="utente.id">
+              <td>
+                {{ utente.Username }}
+                <span v-if="utente.isAdmin" class="admin-badge">Admin</span>
+              </td>
               <td>{{ utente.emailSpotify }}</td>
               <td>{{ utente.emailGoogle }}</td>
               <td>{{ utente.Position }}</td>
@@ -297,11 +327,11 @@ export default {
   data() {
     return {
       utenti: [],
-      utentiFiltrati: [],
       userData: null,
       mostraModaleModifica: false,
       utenteModificabile: {},
       filtri: {
+        Username: "",
         Position: "",
         DateBorn: "",
       },
@@ -314,8 +344,50 @@ export default {
         DateBorn: "",
         Password: ""
       },
-      currentUserDetails: null
+      currentUserDetails: null,
+      searchTerm: "",
+      sortKey: "",
+      sortAsc: true,
     };
+  },
+  computed: {
+    processedUtenti() {
+      let tempUtenti = [...this.utenti];
+
+      if (this.filtri.Username) {
+        tempUtenti = tempUtenti.filter(user =>
+          user.Username && user.Username.toLowerCase().includes(this.filtri.Username.toLowerCase())
+        );
+      }
+
+      if (this.searchTerm) {
+        const searchTermLower = this.searchTerm.toLowerCase();
+        tempUtenti = tempUtenti.filter(user =>
+          (user.Username && user.Username.toLowerCase().includes(searchTermLower)) ||
+          (user.emailSpotify && user.emailSpotify.toLowerCase().includes(searchTermLower)) ||
+          (user.emailGoogle && user.emailGoogle.toLowerCase().includes(searchTermLower)) ||
+          (user.Position && user.Position.toLowerCase().includes(searchTermLower))
+        );
+      }
+
+      if (this.sortKey) {
+        tempUtenti.sort((a, b) => {
+          let valA = a[this.sortKey];
+          let valB = b[this.sortKey];
+
+          if (valA === undefined || valA === null) valA = '';
+          if (valB === undefined || valB === null) valB = '';
+          
+          if (typeof valA === 'string') valA = valA.toLowerCase();
+          if (typeof valB === 'string') valB = valB.toLowerCase();
+
+          if (valA < valB) return this.sortAsc ? -1 : 1;
+          if (valA > valB) return this.sortAsc ? 1 : -1;
+          return 0;
+        });
+      }
+      return tempUtenti;
+    }
   },
   methods: {
     async getUserData() {
@@ -326,7 +398,6 @@ export default {
         this.userData = response.data;
         this.userId = this.userData.userId.toString();
         
-        // Get full user details to check required fields
         await this.checkRequiredFields();
       } catch (error) {
         console.error("Errore nel recupero dei dati utente:", error);
@@ -335,21 +406,16 @@ export default {
     },
     async checkRequiredFields() {
       try {
-        // Get the current user's full details
         const users = await this.getUserById(this.userId);
         if (users && users.length > 0) {
           this.currentUserDetails = users[0];
           
-          // Check if required fields are missing
           if (!this.currentUserDetails.Position || !this.currentUserDetails.DateBorn) {
-            // Set initial values if they exist
             this.profileData.Position = this.currentUserDetails.Position || "";
             this.profileData.DateBorn = this.currentUserDetails.DateBorn || "";
             
-            // Show profile completion modal
             this.showProfileCompletion = true;
           } else {
-            // All required fields are present, proceed normally
             await this.recuperaUtenti();
             this.favorite();
             this.setupWebSocket();
@@ -373,10 +439,8 @@ export default {
     },
     async completeProfile() {
       try {
-        // Ensure we have the password from the current user details
         this.profileData.Password = this.currentUserDetails.Password || "";
         
-        // Update user with the required fields
         await axios.put(
           `http://localhost:3000/users/${this.userId}`,
           {
@@ -393,10 +457,8 @@ export default {
           }
         );
         
-        // Hide the profile completion modal
         this.showProfileCompletion = false;
         
-        // Load the main content
         await this.recuperaUtenti();
         this.favorite();
         this.setupWebSocket();
@@ -429,14 +491,8 @@ export default {
           xhr.send();
         });
 
-        // Filter out admin users before setting the users list
         this.utenti = response.filter((user) => !user.isAdmin);
-        
-        // Only filter out Twitch users, don't apply any other filtering
-        // that might exclude regular login users
         this.utenti = this.utenti.filter((user) => !user.emailTwitch);
-        
-        this.utentiFiltrati = this.utenti;
         
         console.log("Users loaded:", this.utenti.length);
       } catch (error) {
@@ -574,9 +630,8 @@ export default {
 
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-          // Filter out admin users from the filtered results
-          this.utentiFiltrati = JSON.parse(xhr.responseText).filter(
-            (user) => !user.isAdmin
+          this.utenti = JSON.parse(xhr.responseText).filter(
+            (user) => !user.isAdmin && !user.emailTwitch
           );
         } else {
           console.error("Error applying filters:", xhr.statusText);
@@ -594,7 +649,10 @@ export default {
     resettaFiltri() {
       this.filtri.Position = "";
       this.filtri.DateBorn = "";
-      this.utentiFiltrati = this.utenti;
+      this.filtri.Username = "";
+      this.searchTerm = "";
+      this.sortKey = "";
+      this.recuperaUtenti();
     },
     favorite() {
       axios
@@ -648,6 +706,14 @@ export default {
 
       this.ws = ws;
     },
+    sortBy(key) {
+      if (this.sortKey === key) {
+        this.sortAsc = !this.sortAsc;
+      } else {
+        this.sortKey = key;
+        this.sortAsc = true;
+      }
+    }
   },
   mounted() {
     this.getUserData();
@@ -656,14 +722,12 @@ export default {
 </script>
 
 <style scoped>
-/* Applica box-sizing globalmente */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
 }
 
-/* Padding del Contenitore */
 .userlist-container {
   padding: 20px;
 }
@@ -680,16 +744,19 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 30px;
+  gap: 20px;
   margin-bottom: 40px;
 }
 
-.title {
-  font-size: 24px;
-  margin: 0;
+.search-container {
+  width: 100%;
+  max-width: 400px;
 }
 
-/* Profile Completion Modal */
+.search-input {
+  width: 100%;
+}
+
 .profile-completion-modal .modal-content {
   max-width: 500px;
 }
@@ -698,7 +765,6 @@ export default {
   margin-bottom: 20px;
 }
 
-/* Sezione Filtri */
 .filters {
   margin-bottom: 40px;
 }
@@ -711,7 +777,7 @@ export default {
 .filters-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 30px;
+  gap: 20px;
   margin-bottom: 20px;
 }
 
@@ -721,7 +787,6 @@ export default {
   gap: 30px;
 }
 
-/* Utenti Mobile */
 .user-cards-mobile {
   display: grid;
   grid-template-columns: 1fr;
@@ -729,7 +794,6 @@ export default {
   margin-bottom: 40px;
 }
 
-/* Card Utente */
 .user-card {
   background-color: #fdfdfd;
   border: 1px solid #e0e0e0;
@@ -753,6 +817,20 @@ export default {
   gap: 20px;
 }
 
+.user-card-header strong {
+  margin-right: 8px;
+}
+
+.admin-badge {
+  background-color: #8e44ad;
+  color: white;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
 .user-card-content {
   display: grid;
   gap: 15px;
@@ -763,7 +841,6 @@ export default {
   font-size: 16px;
 }
 
-/* Status Indicator */
 .status-line {
   display: flex;
   align-items: center;
@@ -779,15 +856,12 @@ export default {
 
 .status-indicator.online {
   background-color: #2ecc71;
-  /* Green */
 }
 
 .status-indicator.offline {
   background-color: #e74c3c;
-  /* Red */
 }
 
-/* Listening Container */
 .listening-container {
   display: inline-block;
   background-color: #e8f7ff;
@@ -807,7 +881,6 @@ export default {
   font-weight: 500;
 }
 
-/* Keyframes for fade-in animation */
 @keyframes fadeIn {
   0% {
     opacity: 0;
@@ -820,7 +893,6 @@ export default {
   }
 }
 
-/* Azioni Utente */
 .user-actions {
   display: flex;
   gap: 20px;
@@ -849,7 +921,6 @@ export default {
   background-color: #ff4d4d;
 }
 
-/* Tabella Desktop */
 .table-responsive {
   margin-bottom: 40px;
 }
@@ -871,11 +942,18 @@ export default {
   font-size: 16px;
 }
 
+.user-table th.sortable-header {
+  cursor: pointer;
+}
+
+.user-table th.sortable-header:hover {
+  background-color: #e9e9e9;
+}
+
 .user-table td {
   font-size: 15px;
 }
 
-/* Sezione Preferiti */
 .favorite-tracks-section {
   margin-bottom: 40px;
 }
@@ -926,7 +1004,6 @@ export default {
   font-size: 14px;
 }
 
-/* Modal */
 .modal {
   position: fixed;
   top: 0;
@@ -981,7 +1058,6 @@ export default {
   background-color: #85c1e9;
 }
 
-/* Input Stili */
 .cute-input {
   width: 100%;
   max-width: 100%;
@@ -999,7 +1075,6 @@ export default {
   outline: none;
 }
 
-/* Pulsanti Filtri */
 .filter-buttons {
   display: flex;
   gap: 30px;
@@ -1021,7 +1096,6 @@ export default {
   background-color: #85c1e9;
 }
 
-/* Responsive */
 .desktop-only {
   display: none;
 }
@@ -1030,19 +1104,17 @@ export default {
   .header-section {
     flex-direction: row;
     justify-content: space-between;
-    gap: 40px;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .search-container {
+    flex-grow: 1;
+    margin: 0 20px;
   }
 
   .filters-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .modal-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .user-cards-mobile {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
@@ -1056,7 +1128,7 @@ export default {
   }
 
   .modal-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
