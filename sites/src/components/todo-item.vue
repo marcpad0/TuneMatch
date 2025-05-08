@@ -1,86 +1,97 @@
-<!-- src/components/Register.vue -->
 <template>
-  <div class="login-container">
+  <div class="login-container"> 
     <div class="login-card">
       <h2 class="title">Registrati</h2>
       <form @submit.prevent="registerUser">
         <div class="input-group">
           <label for="username">Username</label>
-          <input
-            id="username"
-            v-model="username"
-            type="text"
-            placeholder="Inserisci il tuo username"
-            required
-          />
+          <div class="input-wrapper">
+            <span class="input-icon">👤</span>
+            <input
+              id="username"
+              v-model="username"
+              type="text"
+              placeholder="Inserisci il tuo username"
+              required
+            />
+          </div>
         </div>
         <div class="input-group">
           <label for="emailSpotify">Email Spotify</label>
-          <input
-            id="emailSpotify"
-            v-model="emailSpotify"
-            type="email"
-            placeholder="Inserisci la tua email di Spotify"
-            required
-          />
+          <div class="input-wrapper">
+            <span class="input-icon">📧</span>
+            <input
+              id="emailSpotify"
+              v-model="emailSpotify"
+              type="email"
+              placeholder="Inserisci la tua email di Spotify"
+              required
+            />
+          </div>
         </div>
         <div class="input-group">
           <label for="position">Posizione</label>
-          <input
-            id="position"
-            v-model="position"
-            type="text"
-            placeholder="Inserisci la tua posizione"
-            required
-          />
+          <div class="input-wrapper">
+            <span class="input-icon">📍</span>
+            <input
+              id="position"
+              v-model="position"
+              type="text"
+              placeholder="Inserisci la tua posizione"
+              required
+            />
+          </div>
         </div>
         <div class="input-group">
           <label for="dateBorn">Data di Nascita</label>
-          <input id="dateBorn" v-model="dateBorn" type="date" required />
+          <div class="input-wrapper">
+            <span class="input-icon">🗓️</span>
+            <input 
+              id="dateBorn" 
+              v-model="dateBorn" 
+              type="date" 
+              required 
+            />
+          </div>
         </div>
         <div class="input-group">
           <label for="password">Password</label>
-          <input
-            id="password"
-            v-model="password"
-            type="password"
-            placeholder="Inserisci la tua password"
-            required
-          />
+          <div class="input-wrapper">
+            <span class="input-icon">🔒</span>
+            <input
+              id="password"
+              v-model="password"
+              type="password"
+              placeholder="Inserisci la tua password"
+              required
+            />
+          </div>
         </div>
-        <button type="submit" class="login-button">Registrati</button>
+        <button type="submit" class="login-button">
+          <span>Registrati</span>
+          <span class="button-icon">→</span>
+        </button>
       </form>
 
-      <!-- Social Login Buttons -->
+      <div class="divider">
+        <span>oppure</span>
+      </div>
+
       <div class="social-logins">
-        <!-- Spotify Login -->
-        <div class="spotify-login">
-          <button @click="loginWithSpotify" class="spotify-button">
-            <img src="../assets/spotify-logo.png" alt="Spotify Logo" />
-            Accedi con Spotify
-          </button>
-        </div>
+        <button @click="loginWithSpotify" class="spotify-button social-button">
+          <span class="social-icon">🎵</span>
+          Accedi con Spotify
+        </button>
 
-<!--         Twitch Login
-        <div class="twitch-login">
-          <button @click="loginWithTwitch" class="twitch-button">
-            <img src="../assets/twitch-logo.png" alt="Twitch Logo" />
-            Accedi con Twitch
-          </button>
-        </div> -->
-
-        <!-- Google Login -->
-        <div class="google-login">
-          <button @click="loginWithGoogle" class="google-button">
-            <img src="../assets/google-logo.png" alt="Google Logo" />
-            Accedi con Google
-          </button>
-        </div>
+        <button @click="loginWithGoogle" class="google-button social-button">
+          <span class="social-icon">G</span>
+          Accedi con Google
+        </button>
       </div>
 
       <p class="register-link">
         Hai già un account?
-        <router-link to="/login">Accedi</router-link>
+        <router-link to="/">Accedi</router-link>
       </p>
     </div>
   </div>
@@ -143,80 +154,7 @@ export default {
 </script>
 
 <style scoped>
-.spotify-login,
-.twitch-login,
-.google-login {
-  text-align: center;
-  margin: 10px 0;
-}
-
-.twitch-button,
-.google-button {
-  background-color: #ffffff;
-  color: #444444;
-  border: 1px solid #cccccc;
-  padding: 10px 20px;
-  border-radius: 5px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
-}
-
-.spotify-button {
-  background-color: #1db954;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 5px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-}
-
-.spotify-button img,
-.google-button img {
-  width: 20px;
-  height: 20px;
-  margin-right: 10px;
-}
-
-.twitch-button img {
-  width: 40px;
-  height: 20px;
-  margin-right: 10px;
-}
-
-.spotify-button:hover {
-  background-color: #1ed760;
-}
-
-.twitch-button {
-  background-color: #6441a5;
-  color: white;
-}
-
-.twitch-button:hover {
-  background-color: #7d5bbe;
-  border-color: #7d5bbe;
-}
-
-.google-button {
-  background-color: #ffffff;
-  border: 1px solid #4285f4;
-  color: #4285f4;
-}
-
-.google-button:hover {
-  background-color: #4285f4;
-  color: #ffffff;
-  border-color: #4285f4;
-}
-
+/* Reset di base per garantire la coerenza tra i browser */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -226,36 +164,69 @@ export default {
 body,
 html {
   height: 100%;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  background: linear-gradient(135deg, #71b7e6, #9b59b6);
+  font-family: "Quicksand", sans-serif;
 }
 
 .login-container {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
-  height: 100%;
+  max-width: 450px;
+  width: 100%;
+  animation: fadeIn 0.8s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.logo-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.app-logo-icon {
+  font-size: 48px;
+  color: #8e44ad;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.app-logo-text {
+  font-size: 32px;
+  font-weight: 700;
+  background: linear-gradient(45deg, #8e44ad, #3498db);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  margin: 10px 0;
 }
 
 .login-card {
   background-color: #ffffff;
-  padding: 40px 30px;
-  border-radius: 10px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+  padding: 30px;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
   width: 100%;
-  max-width: 400px;
-  animation: fadeIn 1s ease-in-out;
 }
 
 .title {
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 25px;
   color: #333333;
+  font-size: 24px;
 }
 
 .input-group {
   margin-bottom: 20px;
-  position: relative;
 }
 
 .input-group label {
@@ -263,93 +234,176 @@ html {
   margin-bottom: 8px;
   color: #555555;
   font-size: 14px;
+  font-weight: 600;
+}
+
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 12px;
+  color: #8e44ad;
+  font-size: 16px;
 }
 
 .input-group input {
   width: 100%;
-  padding: 12px 15px;
-  border: 1px solid #cccccc;
-  border-radius: 5px;
-  transition: border-color 0.3s ease;
+  padding: 12px 15px 12px 40px;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  transition: all 0.3s ease;
   font-size: 16px;
+  background-color: #f9f9f9;
 }
 
 .input-group input:focus {
-  border-color: #9b59b6;
+  border-color: #8e44ad;
+  box-shadow: 0 0 0 2px rgba(142, 68, 173, 0.2);
   outline: none;
+  background-color: #fff;
 }
 
 .login-button {
   width: 100%;
-  padding: 12px;
-  background-color: #9b59b6;
+  padding: 14px;
+  background: linear-gradient(45deg, #8e44ad, #9b59b6);
   border: none;
-  border-radius: 5px;
+  border-radius: 12px;
   color: #ffffff;
   font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.button-icon {
+  margin-left: 8px;
+  transition: transform 0.3s ease;
 }
 
 .login-button:hover {
-  background-color: #8e44ad;
+  background: linear-gradient(45deg, #9b59b6, #8e44ad);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(155, 89, 182, 0.3);
+}
+
+.login-button:hover .button-icon {
+  transform: translateX(5px);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  margin: 25px 0;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.divider span {
+  padding: 0 15px;
+  font-size: 14px;
+  color: #777;
+}
+
+.social-logins {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.social-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+}
+
+.social-icon {
+  margin-right: 10px;
+  font-size: 18px;
+}
+
+.spotify-button {
+  background-color: #1DB954;
+  color: white;
+}
+
+.spotify-button:hover {
+  background-color: #1ed760;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(30, 215, 96, 0.3);
+}
+
+.google-button {
+  background-color: #4285F4;
+  color: white;
+}
+
+.google-button:hover {
+  background-color: #5a95f5;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(66, 133, 244, 0.3);
 }
 
 .register-link {
   text-align: center;
-  margin-top: 20px;
+  margin-top: 25px;
   color: #777777;
   font-size: 14px;
 }
 
 .register-link a {
-  color: #9b59b6;
+  color: #8e44ad;
   text-decoration: none;
   font-weight: bold;
   transition: color 0.3s ease;
 }
 
 .register-link a:hover {
-  color: #8e44ad;
+  color: #9b59b6;
+  text-decoration: underline;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Responsività */
+/* Responsiveness */
 @media (max-width: 480px) {
   .login-card {
-    padding: 30px 20px;
+    padding: 25px 20px;
   }
-
+  
+  .app-logo-text {
+    font-size: 28px;
+  }
+  
   .title {
-    font-size: 24px;
+    font-size: 22px;
   }
-
+  
   .input-group label {
     font-size: 13px;
   }
-
+  
   .input-group input {
+    padding: 10px 12px 10px 36px;
     font-size: 14px;
-    padding: 10px 12px;
-  }
-
-  .login-button {
-    font-size: 14px;
-    padding: 10px;
-  }
-
-  .register-link {
-    font-size: 13px;
   }
 }
 </style>

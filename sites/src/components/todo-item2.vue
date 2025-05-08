@@ -1,11 +1,6 @@
 <!-- src/components/Login.vue -->
 <template>
-  <div class="login-container">
-    <div class="logo-container">
-      <span class="app-logo-icon">♪</span>
-      <h1 class="app-logo-text">TuneMatch</h1>
-    </div>
-    
+  <div class="login-container">    
     <div class="login-card">
       <h2 class="title">Accedi</h2>
       <form @submit.prevent="loginUser">
