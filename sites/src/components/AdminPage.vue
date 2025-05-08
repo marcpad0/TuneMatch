@@ -5,7 +5,6 @@
       <!-- Header Section -->
       <div class="header-section">
         <h1 class="title">Admin Dashboard</h1>
-        <button class="logout-button" @click="logout">Logout</button>
       </div>
 
       <!-- Users Cards Section -->

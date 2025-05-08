@@ -69,7 +69,6 @@
         </div>
         <button type="submit" class="login-button">
           <span>Registrati</span>
-          <span class="button-icon">→</span>
         </button>
       </form>
 
