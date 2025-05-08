@@ -15,6 +15,7 @@ const { Server } = require('ws'); // WebSocket server
 const path = require('path');
 const jwt = require('jsonwebtoken'); // Add JWT library
 const cookieParser = require('cookie-parser');
+const axios = require('axios'); // For making HTTP requests to Deezer API
 
 // Load environment variables
 dotenv.config();
@@ -97,6 +98,11 @@ app.use(session({
 
 app.use(passport.initialize());
 app.use(passport.session());
+
+// =====================
+// Deezer API Integration
+// =====================
+const DEEZER_API_BASE_URL = 'https://api.deezer.com/';
 
 // =====================
 // Passport Serialization
@@ -499,6 +505,96 @@ app.post('/login', async (req, res) => {
 
 /**
  * @swagger
+ * /api/deezer/search:
+ *   get:
+ *     summary: Search for tracks on Deezer
+ *     tags: [Deezer]
+ *     parameters:
+ *       - in: query
+ *         name: query
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The search term for tracks
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of results to return
+ *     responses:
+ *       200:
+ *         description: A list of tracks from Deezer
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     description: Deezer track ID
+ *                   name:
+ *                     type: string
+ *                     description: Track name
+ *                   artist:
+ *                     type: string
+ *                     description: Artist name
+ *                   albumName:
+ *                     type: string
+ *                     description: Album name
+ *                   imageUrl:
+ *                     type: string
+ *                     description: URL to album cover art (medium size)
+ *                   type:
+ *                     type: string
+ *                     description: Item type (e.g., 'track')
+ *       400:
+ *         description: Missing query parameter
+ *       500:
+ *         description: Error fetching data from Deezer or server error
+ */
+app.get('/api/deezer/search', async (req, res) => {
+  const { query, limit = 10 } = req.query;
+
+  if (!query) {
+    return res.status(400).json({ message: 'Search query is required.' });
+  }
+
+  try {
+    const response = await axios.get(`${DEEZER_API_BASE_URL}search/track`, {
+      params: {
+        q: query,
+        limit: limit,
+        order: 'RANKING', // You can also use 'TRACK_ASC', 'ARTIST_ASC', etc.
+      },
+    });
+
+    if (response.data && response.data.data) {
+      const tracks = response.data.data.map(track => ({
+        id: track.id,
+        name: track.title_short || track.title,
+        artist: track.artist.name,
+        albumName: track.album.title,
+        imageUrl: track.album.cover_medium || track.album.cover_small || null, // Prefer medium, fallback to small
+        type: 'track', // To identify the item type
+      }));
+      res.json(tracks);
+    } else {
+      // Deezer might return an empty data array or an error structure
+      console.error('Deezer API response format unexpected or error:', response.data);
+      res.status(500).json({ message: 'Error fetching data from music service or no results.' });
+    }
+  } catch (error) {
+    console.error('Error calling Deezer API:', error.response ? error.response.data : error.message);
+    res.status(500).json({ message: 'Server error while searching music.' });
+  }
+});
+
+/**
+ * @swagger
  * /admin/test:
  *   get:
  *     summary: Admin-only test endpoint
@@ -706,7 +802,6 @@ app.put('/users/:id', async (req, res) => {
   }
 });
 
-
 // Get specific user by ID
 app.get('/users/:id', async (req, res) => {
   try {
@@ -719,11 +814,103 @@ app.get('/users/:id', async (req, res) => {
     
     // Remove sensitive information
     delete user.Password;
+
+    // Parse favorite_selections if it's a string
+    if (user.favorite_selections && typeof user.favorite_selections === 'string') {
+      try {
+        user.favorite_selections = JSON.parse(user.favorite_selections);
+      } catch (e) {
+        console.error("Error parsing favorite_selections for user:", userId, e);
+        user.favorite_selections = null; // Or handle error as appropriate
+      }
+    } else if (!user.favorite_selections) {
+      user.favorite_selections = null; // Ensure it's explicitly null if not set
+    }
     
     res.json(user);
   } catch (error) {
     console.error('Error fetching user:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+/**
+ * @swagger
+ * /users/{id}/set-favorites:
+ *   post:
+ *     summary: Set user's favorite music selections
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the user
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               favorites:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of favorite selections (max 3)
+ *             example:
+ *               favorites: ["Rock", "Queen", "Jazz"]
+ *     responses:
+ *       200:
+ *         description: Favorites updated successfully
+ *       400:
+ *         description: Invalid request (e.g., too many favorites)
+ *       401:
+ *         description: Unauthorized (user can only update their own favorites unless admin)
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
+app.post('/users/:id/set-favorites', async (req, res) => {
+  const { id } = req.params;
+  const { favorites } = req.body; // favorites will now be an array of Deezer track objects
+
+  // Updated validation for objects
+  if (!Array.isArray(favorites) || favorites.length > 3) {
+    return res.status(400).json({ message: 'Favorites must be an array with a maximum of 3 items.' });
+  }
+  // Example validation if favorites are objects like { id, name, artist, imageUrl, type }
+  if (favorites.some(fav => 
+      typeof fav !== 'object' || 
+      fav.id === undefined || // Deezer IDs are numbers
+      typeof fav.name !== 'string' || fav.name.trim() === '' ||
+      typeof fav.artist !== 'string' || fav.artist.trim() === '' ||
+      typeof fav.type !== 'string' // e.g., 'track'
+    )) {
+    return res.status(400).json({ message: 'Each favorite must be a valid music item object with id, name, artist, and type.' });
+  }
+
+  // Authorization
+  if (!req.session.user || req.session.user.id.toString() !== id /* && !req.session.user.isAdmin */) {
+      if (!req.session.user) {
+        return res.status(401).json({ message: 'Unauthorized: No active session.' });
+      }
+      if (req.session.user.id.toString() !== id) { // Basic check, admin override can be added
+           return res.status(401).json({ message: 'Unauthorized to set favorites for this user.' });
+      }
+  }
+
+  try {
+    const changes = await db.setUserFavoriteSelections(id, favorites); 
+    if (changes === 0) {
+      return res.status(404).json({ message: 'User not found or no changes made.' });
+    }
+    res.status(200).json({ message: 'Favorites updated successfully.' });
+  } catch (err) {
+    console.error('Error setting favorites:', err.message);
+    res.status(500).json({ message: 'Server error while setting favorites.' });
   }
 });
 

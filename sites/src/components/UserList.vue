@@ -33,7 +33,70 @@
       </div>
     </div>
 
-    <div v-if="!showProfileCompletion" class="userlist-card">
+    <!-- Favorite Selection Modal -->
+    <div v-if="showFavoriteSelectionModal" class="modal favorite-selection-modal">
+      <div class="modal-content">
+        <span class="close" @click="closeFavoriteSelectionModal">&times;</span>
+        <h2 class="modal-title">Select Your Music Preferences</h2>
+        <p class="modal-subtitle">Search for your favorite tracks (max 3 selections).</p>
+        
+        <div class="deezer-search-container">
+          <input
+            type="text"
+            v-model="deezerSearchQuery"
+            placeholder="Search tracks on Deezer..."
+            @keyup.enter="searchDeezer"
+            class="cute-input"
+          />
+          <button @click="searchDeezer" :disabled="isLoadingDeezer" class="search-button">
+            {{ isLoadingDeezer ? 'Searching...' : 'Search' }}
+          </button>
+        </div>
+
+        <div v-if="deezerSearchError" class="error-message">{{ deezerSearchError }}</div>
+
+        <div class="deezer-results-container" v-if="deezerSearchResults.length > 0">
+          <p>Search Results:</p>
+          <div class="results-grid">
+            <div
+              v-for="item in deezerSearchResults"
+              :key="item.id"
+              class="result-item"
+              :class="{ 'selected': isSelectedFavorite(item) }"
+              @click="toggleFavoriteSelection(item)"
+            >
+              <img v-if="item.imageUrl" :src="item.imageUrl" :alt="item.name" class="result-image"/>
+              <div v-else class="result-image-placeholder">No Image</div>
+              <div class="result-info">
+                <span class="result-name">{{ item.name }}</span>
+                <span class="result-artist">{{ item.artist }}</span>
+              </div>
+              <span v-if="isSelectedFavorite(item)" class="selected-indicator">✓</span>
+            </div>
+          </div>
+        </div>
+        <div v-else-if="!isLoadingDeezer && hasSearchedDeezer" class="no-results">
+            No results found. Try a different search.
+        </div>
+
+        <div class="selected-favorites-container" v-if="selectedFavorites.length > 0">
+          <p>Your Selections ({{ selectedFavorites.length }}/3):</p>
+          <div class="selected-items-grid">
+            <div v-for="item in selectedFavorites" :key="item.id" class="selected-item">
+              <span>{{ item.name }} - {{ item.artist }}</span>
+              <button @click="removeSelectedFavorite(item)" class="remove-button">&times;</button>
+            </div>
+          </div>
+        </div>
+        
+        <div v-if="favoriteSelectionError" class="error-message">{{ favoriteSelectionError }}</div>
+        <button @click="saveSelectedFavorites" class="modal-button save-favorites-button" :disabled="selectedFavorites.length === 0 && !hasPreviouslySavedFavorites">
+          Save Preferences
+        </button>
+      </div>
+    </div>
+
+    <div v-if="!showProfileCompletion && !showFavoriteSelectionModal" class="userlist-card">
       <div class="header-section">
         <h2 class="title">Lista Utenti</h2>
         <div class="search-container">
@@ -224,7 +287,7 @@ export default {
   data() {
     return {
       utenti: [],
-      userData: null,
+      userData: null, 
       mostraModaleModifica: false,
       utenteModificabile: {},
       filtri: {
@@ -232,8 +295,8 @@ export default {
         Position: "",
         DateBorn: "",
       },
-      favorites: [],
-      userId: null,
+      favorites: [], 
+      userId: null, 
       statuses: [],
       showProfileCompletion: false,
       profileData: {
@@ -241,10 +304,21 @@ export default {
         DateBorn: "",
         Password: ""
       },
-      currentUserDetails: null,
+      currentUserDetails: null, 
       searchTerm: "",
       sortKey: "",
       sortAsc: true,
+      
+      // Data for Deezer integration
+      showFavoriteSelectionModal: false,
+      deezerSearchQuery: "",
+      deezerSearchResults: [],
+      selectedFavorites: [], // Stores selected Deezer item objects
+      isLoadingDeezer: false,
+      deezerSearchError: "",
+      favoriteSelectionError: "",
+      hasSearchedDeezer: false,
+      hasPreviouslySavedFavorites: false, // To allow saving empty if they had favs before
     };
   },
   computed: {
@@ -289,37 +363,97 @@ export default {
   methods: {
     async getUserData() {
       try {
-        const response = await axios.get("http://localhost:3000/auth/me", {
+        const sessionResponse = await axios.get("http://localhost:3000/auth/me", {
           withCredentials: true,
         });
-        this.userData = response.data;
-        this.userId = this.userData.userId.toString();
-        
-        await this.checkRequiredFields();
+
+        if (sessionResponse.data && sessionResponse.data.userId) {
+          this.userData = sessionResponse.data;
+          this.userId = sessionResponse.data.userId;
+          
+          await this.fetchCurrentUserDetails(this.userId); 
+          await this.checkRequiredFields(); // This will call checkRequiredSelections internally
+
+          if (!this.showProfileCompletion && !this.showFavoriteSelectionModal) {
+            await this.recuperaUtenti();
+            // this.favorite(); // Review this method
+            this.setupWebSocket();
+          }
+        } else {
+          this.$router.push("/");
+        }
       } catch (error) {
-        console.error("Errore nel recupero dei dati utente:", error);
-        this.$router.push("/");
+        console.error("Error in getUserData:", error);
+        // this.$router.push("/"); 
+      }
+    },
+    async fetchCurrentUserDetails(userId) {
+      try {
+        const response = await axios.get(`http://localhost:3000/users/${userId}`, {
+          withCredentials: true,
+        });
+        this.currentUserDetails = response.data;
+        if (this.currentUserDetails && Array.isArray(this.currentUserDetails.favorite_selections)) {
+          this.selectedFavorites = [...this.currentUserDetails.favorite_selections];
+          this.hasPreviouslySavedFavorites = this.selectedFavorites.length > 0;
+        } else {
+          this.selectedFavorites = [];
+          this.hasPreviouslySavedFavorites = false;
+        }
+      } catch (error) {
+        console.error("Error fetching current user details:", error);
+        this.currentUserDetails = null;
+        this.selectedFavorites = [];
+        this.hasPreviouslySavedFavorites = false;
       }
     },
     async checkRequiredFields() {
       try {
-        const users = await this.getUserById(this.userId);
-        if (users && users.length > 0) {
-          this.currentUserDetails = users[0];
-          
+        // No need to fetch user again if already fetched in getUserData -> fetchCurrentUserDetails
+        if (!this.currentUserDetails && this.userId) {
+             await this.fetchCurrentUserDetails(this.userId);
+        }
+
+        if (this.currentUserDetails) {
           if (!this.currentUserDetails.Position || !this.currentUserDetails.DateBorn) {
             this.profileData.Position = this.currentUserDetails.Position || "";
             this.profileData.DateBorn = this.currentUserDetails.DateBorn || "";
-            
             this.showProfileCompletion = true;
           } else {
-            await this.recuperaUtenti();
-            this.favorite();
-            this.setupWebSocket();
+            this.showProfileCompletion = false;
+            await this.checkRequiredSelections(); 
+            if (!this.showFavoriteSelectionModal && !this.showProfileCompletion) {
+                await this.recuperaUtenti();
+                // this.favorite(); 
+                this.setupWebSocket();
+            }
           }
         }
       } catch (error) {
         console.error("Errore nel controllo dei campi obbligatori:", error);
+      }
+    },
+
+    async checkRequiredSelections() {
+      if (!this.currentUserDetails) {
+        // Attempt to fetch if not available, though it should be by now
+        if (this.userId) await this.fetchCurrentUserDetails(this.userId);
+        if (!this.currentUserDetails) return; 
+      }
+
+      const loggedInViaSpotify = this.currentUserDetails.emailSpotify && this.currentUserDetails.emailSpotify.length > 0;
+      const favoritesAlreadySet = this.currentUserDetails.favorite_selections && Array.isArray(this.currentUserDetails.favorite_selections) && this.currentUserDetails.favorite_selections.length > 0;
+
+      if (!loggedInViaSpotify && !favoritesAlreadySet) {
+        this.showFavoriteSelectionModal = true;
+        this.deezerSearchQuery = "";
+        this.deezerSearchResults = [];
+        this.deezerSearchError = "";
+        this.favoriteSelectionError = "";
+        this.hasSearchedDeezer = false;
+        // selectedFavorites is already initialized by fetchCurrentUserDetails
+      } else {
+        this.showFavoriteSelectionModal = false;
       }
     },
     async getUserById(userId) {
@@ -356,9 +490,14 @@ export default {
         
         this.showProfileCompletion = false;
         
-        await this.recuperaUtenti();
-        this.favorite();
-        this.setupWebSocket();
+        await this.fetchCurrentUserDetails(this.userId); 
+        await this.checkRequiredSelections(); 
+        
+        if (!this.showFavoriteSelectionModal && !this.showProfileCompletion) { 
+            await this.recuperaUtenti();
+            // this.favorite();
+            this.setupWebSocket();
+        }
         
       } catch (error) {
         console.error("Errore nell'aggiornamento del profilo:", error);
@@ -395,6 +534,91 @@ export default {
       } catch (error) {
         console.error("Errore nel recupero degli utenti:", error);
         alert("Impossibile recuperare gli utenti.");
+      }
+    },
+    openFavoriteSelectionModal() {
+      if (this.currentUserDetails && this.currentUserDetails.favorite_selections && Array.isArray(this.currentUserDetails.favorite_selections)) {
+        const favs = [...this.currentUserDetails.favorite_selections];
+        while (favs.length < 3) {
+          favs.push("");
+        }
+        this.currentFavorites = favs.slice(0, 3);
+      } else {
+        this.currentFavorites = ["", "", ""];
+      }
+      this.favoriteSelectionError = "";
+      this.showFavoriteSelectionModal = true;
+    },
+    closeFavoriteSelectionModal() {
+      this.showFavoriteSelectionModal = false;
+      this.deezerSearchError = "";
+      this.favoriteSelectionError = "";
+    },
+    async searchDeezer() {
+      if (!this.deezerSearchQuery.trim()) {
+        this.deezerSearchError = "Please enter a search term.";
+        return;
+      }
+      this.isLoadingDeezer = true;
+      this.deezerSearchError = "";
+      this.deezerSearchResults = [];
+      this.hasSearchedDeezer = true;
+
+      try {
+        const response = await axios.get("http://localhost:3000/api/deezer/search", {
+          params: { query: this.deezerSearchQuery, limit: 10 }, // 'limit' matches backend
+          withCredentials: true,
+        });
+        this.deezerSearchResults = response.data;
+      } catch (error) {
+        console.error("Error searching Deezer:", error);
+        this.deezerSearchError = error.response?.data?.message || "Failed to fetch music results from Deezer.";
+      } finally {
+        this.isLoadingDeezer = false;
+      }
+    },
+    isSelectedFavorite(item) {
+      return this.selectedFavorites.some(fav => fav.id === item.id);
+    },
+
+    toggleFavoriteSelection(item) {
+      this.favoriteSelectionError = ""; 
+      const index = this.selectedFavorites.findIndex(fav => fav.id === item.id);
+      if (index > -1) {
+        this.selectedFavorites.splice(index, 1);
+      } else {
+        if (this.selectedFavorites.length < 3) {
+          this.selectedFavorites.push(item);
+        } else {
+          this.favoriteSelectionError = "You can select a maximum of 3 favorites.";
+        }
+      }
+    },
+    removeSelectedFavorite(itemToRemove) {
+        this.selectedFavorites = this.selectedFavorites.filter(item => item.id !== itemToRemove.id);
+    },
+
+    async saveSelectedFavorites() {
+      this.favoriteSelectionError = "";
+      // Allow saving empty array if they previously had favorites (to clear them)
+      // Or if it's their first time and they choose not to select any.
+      // The button is disabled if selectedFavorites is 0 AND they haven't saved before.
+
+      try {
+        await axios.post(`http://localhost:3000/users/${this.userId}/set-favorites`, 
+          { favorites: this.selectedFavorites }, 
+          { withCredentials: true }
+        );
+        this.closeFavoriteSelectionModal();
+        await this.fetchCurrentUserDetails(this.userId); 
+        
+        if(!this.showProfileCompletion && !this.showFavoriteSelectionModal) {
+            await this.recuperaUtenti();
+        }
+
+      } catch (error) {
+        console.error("Error saving favorites:", error);
+        this.favoriteSelectionError = error.response?.data?.message || "Failed to save preferences.";
       }
     },
     puòModificare(utente) {
@@ -627,6 +851,157 @@ export default {
 
 .userlist-container {
   padding: 20px;
+}
+
+.deezer-search-container { /* Renamed from musixmatch */
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  align-items: center;
+}
+
+.deezer-search-container .cute-input {
+  flex-grow: 1;
+}
+
+.search-button {
+  padding: 10px 15px;
+  background-color: #5cb85c; 
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
+}
+.search-button:hover {
+  background-color: #4cae4c;
+}
+.search-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.deezer-results-container { /* Renamed */
+  margin-top: 15px;
+  max-height: 250px; 
+  overflow-y: auto;
+  border: 1px solid #eee;
+  padding: 10px;
+  border-radius: 8px;
+}
+.no-results {
+    text-align: center;
+    color: #777;
+    margin-top: 20px;
+}
+
+.results-grid {
+  display: grid;
+  grid-template-columns: 1fr; 
+  gap: 10px;
+}
+
+.result-item {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.result-item:hover {
+  background-color: #f9f9f9;
+}
+.result-item.selected {
+  background-color: #e6f7ff; 
+  border-color: #91d5ff;
+}
+
+.result-image {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-right: 10px;
+  background-color: #eee; 
+}
+.result-image-placeholder {
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f0f0f0;
+  color: #aaa;
+  font-size: 10px;
+  text-align: center;
+  border-radius: 4px;
+  margin-right: 10px;
+}
+
+.result-info {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+.result-name {
+  font-weight: bold;
+  font-size: 0.95em;
+}
+.result-artist {
+  font-size: 0.85em;
+  color: #555;
+}
+.selected-indicator {
+    margin-left: auto;
+    color: green;
+    font-weight: bold;
+    font-size: 1.2em;
+}
+
+.selected-favorites-container {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+}
+.selected-favorites-container p {
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.selected-items-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.selected-item {
+  background-color: #e9ecef;
+  padding: 5px 10px;
+  border-radius: 15px;
+  font-size: 0.9em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.remove-button {
+  background: none;
+  border: none;
+  color: #dc3545;
+  cursor: pointer;
+  font-weight: bold;
+  padding: 0 5px;
+}
+
+.save-favorites-button {
+  margin-top: 20px; 
+}
+.error-message {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+.favorite-selection-modal .modal-content {
+  min-height: 400px; 
 }
 
 .userlist-card {
@@ -1021,6 +1396,81 @@ export default {
 
 .user-profile-link:hover:after {
   transform: scaleX(1);
+}
+
+.favorite-selection-modal .modal-content {
+  max-width: 550px;
+  padding: 25px 30px;
+}
+
+.favorite-selection-modal .modal-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.favorite-selection-modal .modal-subtitle {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 25px;
+  text-align: center;
+}
+
+.favorite-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.favorite-inputs .input-group {
+  margin-bottom: 0;
+}
+
+.favorite-inputs .cute-input {
+  width: 100%;
+  padding: 12px 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 15px;
+}
+
+.favorite-inputs .cute-input:focus {
+  border-color: #8e44ad;
+  box-shadow: 0 0 0 2px rgba(142, 68, 173, 0.2);
+}
+
+.save-favorites-button {
+  width: 100%;
+  padding: 12px 20px;
+  font-size: 16px;
+  margin-top: 10px;
+}
+
+.error-message {
+  color: #e74c3c;
+  font-size: 14px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.close {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  font-size: 24px;
+  font-weight: bold;
+  color: #888;
+  cursor: pointer;
+}
+.close:hover {
+  color: #333;
+}
+
+.modal {
+  z-index: 1050;
 }
 
 @media (min-width: 768px) {

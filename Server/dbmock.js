@@ -9,19 +9,21 @@ let users = [
     isAdmin: 1,
     Position: 'Treviglio',
     Password: 'adminpassword',
-    DateBorn: '1990-01-01'
+    DateBorn: '1990-01-01',
+    favorite_selections: JSON.stringify(["Rock", "The Beatles"]) // Example
   },
   {
     id: 2,
     Username: 'janedoe',
     Email: 'jane@example.com',
-    emailSpotify: 'janedoe@spotify.com',
+    emailSpotify: null, // To test the new modal
     emailTwitch: 'janedoe@Twitch.com',
     emailGoogle: 'janedoe@google.com',
     isAdmin: 0,
     Position: 'Milano',
     Password: 'userpassword',
-    DateBorn: '1992-02-02'
+    DateBorn: '1992-02-02',
+    favorite_selections: null
   },
   {
     id: 3,
@@ -33,7 +35,8 @@ let users = [
     isAdmin: 0,
     Position: 'Roma',
     Password: 'spotifypass',
-    DateBorn: '1988-03-03'
+    DateBorn: '1988-03-03',
+    favorite_selections: JSON.stringify(["Pop", "Electronic", "Dua Lipa"])
   }
 ];
 
@@ -133,39 +136,31 @@ const dbMockOperations = {
       isAdmin: 0,
       Position,
       Password,
-      DateBorn
+      DateBorn,
+      favorite_selections: null
     };
     users.push(newUser);
     return Promise.resolve(newUser.id);
   },
   
-  updateUser: (id, { Username, Email = '', emailSpotify = '', emailTwitch = '', emailGoogle = '', Position = '', Password, DateBorn = '', isAdmin }) => {
+  updateUser: (id, updates) => {
     const index = users.findIndex(u => u.id === parseInt(id, 10));
     if (index === -1) return Promise.resolve(0);
   
     // Controlla conflitto di Email se viene aggiornata
-    if (Email && Email !== users[index].Email) {
-      const emailExists = users.some(u => u.Email === Email);
+    if (updates.Email && updates.Email !== users[index].Email) {
+      const emailExists = users.some(u => u.Email === updates.Email);
       if (emailExists) {
         return Promise.reject(new Error('Email già in uso.'));
       }
     }
   
-    // Altri controlli esistenti...
-  
-    const user = users[index];
-    users[index] = {
-      ...user,
-      Username: Username || user.Username,
-      Email: Email || user.Email,
-      emailSpotify: emailSpotify || user.emailSpotify,
-      emailTwitch: emailTwitch || user.emailTwitch,
-      emailGoogle: emailGoogle || user.emailGoogle,
-      Position: Position || user.Position,
-      Password: Password || user.Password,
-      DateBorn: DateBorn || user.DateBorn,
-      isAdmin: typeof isAdmin === 'number' ? isAdmin : user.isAdmin
-    };
+    const userToUpdate = users[index];
+    users[index] = { ...userToUpdate, ...updates };
+    if (updates.favorite_selections) {
+      users[index].favorite_selections = JSON.stringify(updates.favorite_selections);
+    }
+    
     return Promise.resolve(1);
   },
   
@@ -202,6 +197,10 @@ const dbMockOperations = {
 
   getUserById: (id) => {
     const user = users.find(u => u.id === parseInt(id, 10)) || null;
+    if (user && user.favorite_selections && typeof user.favorite_selections === 'string') {
+      // Ensure it's parsed if it was stringified
+      // This is more for consistency if other parts of mock DB don't stringify/parse
+    }
     return Promise.resolve(user);
   },
 
@@ -218,6 +217,16 @@ const dbMockOperations = {
   getUserByEmailGoogle: (emailGoogle) => { // Metodo aggiunto per ottenere l'utente tramite email Google
     const user = users.find(u => u.emailGoogle === emailGoogle) || null;
     return Promise.resolve(user);
+  },
+
+  // Add a new function to specifically update favorite selections
+  setUserFavoriteSelections: (userId, favorites) => {
+    const index = users.findIndex(u => u.id === parseInt(userId, 10));
+    if (index === -1) {
+      return Promise.resolve(0);
+    }
+    users[index].favorite_selections = JSON.stringify(favorites);
+    return Promise.resolve(1);
   },
 
   // ====================
@@ -304,34 +313,37 @@ const dbMockOperations = {
         id: 1,
         Username: 'johndoe',
         emailSpotify: 'johndoe@spotify.com',
-        emailTwitch: 'johndoe@Twitch.com', // Aggiunto per Twitch
-        emailGoogle: 'johndoe@google.com', // Aggiunto per Google
+        emailTwitch: 'johndoe@Twitch.com', 
+        emailGoogle: 'johndoe@google.com', 
         isAdmin: 1,
         Position: 'Treviglio',
         Password: 'adminpassword',
-        DateBorn: '1990-01-01'
+        DateBorn: '1990-01-01',
+        favorite_selections: JSON.stringify(["Rock", "The Beatles"])
       },
       {
         id: 2,
         Username: 'janedoe',
-        emailSpotify: 'janedoe@spotify.com',
-        emailTwitch: 'janedoe@Twitch.com', // Aggiunto per Twitch
-        emailGoogle: 'janedoe@google.com', // Aggiunto per Google
+        emailSpotify: null,
+        emailTwitch: 'janedoe@Twitch.com', 
+        emailGoogle: 'janedoe@google.com',        
         isAdmin: 0,
         Position: 'Milano',
         Password: 'userpassword',
-        DateBorn: '1992-02-02'
+        DateBorn: '1992-02-02',
+        favorite_selections: null
       },
       {
         id: 3,
         Username: 'spotifyuser',
         emailSpotify: 'spotifyuser@spotify.com',
-        emailTwitch: 'spotifyuser@Twitch.com', // Aggiunto per Twitch
-        emailGoogle: 'spotifyuser@google.com', // Aggiunto per Google
+        emailTwitch: 'spotifyuser@Twitch.com',        
+        emailGoogle: 'spotifyuser@google.com',        
         isAdmin: 0,
         Position: 'Roma',
         Password: 'spotifypass',
-        DateBorn: '1988-03-03'
+        DateBorn: '1988-03-03',
+        favorite_selections: JSON.stringify(["Pop"])
       }
     ];
 

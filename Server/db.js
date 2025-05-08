@@ -52,7 +52,8 @@ db.serialize(() => {
       isAdmin INTEGER DEFAULT 0,
       Position TEXT,
       Password TEXT,
-      DateBorn TEXT
+      DateBorn TEXT,
+      favorite_selections TEXT 
     )
   `);
 });
@@ -105,8 +106,8 @@ const dbOperations = {
   createUser: ({ Username, Email = '', emailSpotify = '', emailTwitch = '', emailGoogle = '', Position = '', Password, DateBorn = '' }) => {
     return new Promise((resolve, reject) => {
       db.run(
-        'INSERT INTO users (Username, Email, emailSpotify, emailTwitch, emailGoogle, isAdmin, Position, Password, DateBorn) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [Username, Email, emailSpotify, emailTwitch, emailGoogle, 0, Position, Password, DateBorn],
+        'INSERT INTO users (Username, Email, emailSpotify, emailTwitch, emailGoogle, isAdmin, Position, Password, DateBorn, favorite_selections) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [Username, Email, emailSpotify, emailTwitch, emailGoogle, 0, Position, Password, DateBorn, null],
         function (err) {
           if (err) return reject(err);
           resolve(this.lastID);
@@ -115,11 +116,43 @@ const dbOperations = {
     });
   },
   
-  updateUser: (id, { Username, Email = '', emailSpotify = '', emailTwitch = '', emailGoogle = '', Position = '', Password, DateBorn = '', isAdmin }) => {
+  updateUser: (id, { Username, Email = '', emailSpotify = '', emailTwitch = '', emailGoogle = '', Position = '', Password, DateBorn = '', isAdmin, favorite_selections }) => {
     return new Promise((resolve, reject) => {
+      // Build the query dynamically to only update provided fields
+      let setClauses = [];
+      let params = [];
+
+      if (Username !== undefined) { setClauses.push('Username = ?'); params.push(Username); }
+      if (Email !== undefined) { setClauses.push('Email = ?'); params.push(Email); }
+      if (emailSpotify !== undefined) { setClauses.push('emailSpotify = ?'); params.push(emailSpotify); }
+      if (emailTwitch !== undefined) { setClauses.push('emailTwitch = ?'); params.push(emailTwitch); }
+      if (emailGoogle !== undefined) { setClauses.push('emailGoogle = ?'); params.push(emailGoogle); }
+      if (Position !== undefined) { setClauses.push('Position = ?'); params.push(Position); }
+      if (Password !== undefined) { setClauses.push('Password = ?'); params.push(Password); }
+      if (DateBorn !== undefined) { setClauses.push('DateBorn = ?'); params.push(DateBorn); }
+      if (isAdmin !== undefined) { setClauses.push('isAdmin = ?'); params.push(isAdmin); }
+      if (favorite_selections !== undefined) { setClauses.push('favorite_selections = ?'); params.push(JSON.stringify(favorite_selections)); }
+      
+      if (setClauses.length === 0) {
+        return resolve(0); // No changes to make
+      }
+
+      params.push(id);
+      const query = `UPDATE users SET ${setClauses.join(', ')} WHERE id = ?`;
+
+      db.run(query, params, function (err) {
+        if (err) return reject(err);
+        resolve(this.changes);
+      });
+    });
+  },
+
+  setUserFavoriteSelections: (userId, favorites) => {
+    return new Promise((resolve, reject) => {
+      const favoritesJson = JSON.stringify(favorites);
       db.run(
-        'UPDATE users SET Username = ?, Email = ?, emailSpotify = ?, emailTwitch = ?, emailGoogle = ?, Position = ?, Password = ?, DateBorn = ?, isAdmin = ? WHERE id = ?',
-        [Username, Email, emailSpotify, emailTwitch, emailGoogle, Position, Password, DateBorn, isAdmin, id],
+        'UPDATE users SET favorite_selections = ? WHERE id = ?',
+        [favoritesJson, userId],
         function (err) {
           if (err) return reject(err);
           resolve(this.changes);
