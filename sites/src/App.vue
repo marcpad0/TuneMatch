@@ -8,8 +8,14 @@
         </router-link>
         
         <div class="navbar-links">
-          <router-link to="/register">Register</router-link>
-          <router-link to="/">Login</router-link>
+          <!-- Show these links only when user is NOT authenticated -->
+          <template v-if="!isAuthenticated">
+            <router-link to="/register">Register</router-link>
+            <router-link to="/">Login</router-link>
+          </template>
+          
+          <!-- Show logout button when user is authenticated -->
+          <a v-else href="#" @click.prevent="logout" class="logout-link">Logout</a>
         </div>
       </div>
     </nav>
@@ -18,6 +24,52 @@
     </main>
   </div>
 </template>
+
+<script>
+import axios from 'axios';
+
+export default {
+  data() {
+    return {
+      isAuthenticated: false
+    };
+  },
+  methods: {
+    async checkAuthStatus() {
+      try {
+        const response = await axios.get("http://localhost:3000/auth/check-session", {
+          withCredentials: true
+        });
+        this.isAuthenticated = response.data.authenticated;
+      } catch (error) {
+        console.error("Auth check error:", error);
+        this.isAuthenticated = false;
+      }
+    },
+    async logout() {
+      try {
+        await axios.post("http://localhost:3000/logout", {}, {
+          withCredentials: true
+        });
+        this.isAuthenticated = false;
+        this.$router.push("/");
+      } catch (error) {
+        console.error("Logout error:", error);
+        alert("Error during logout. Please try again.");
+      }
+    }
+  },
+  mounted() {
+    this.checkAuthStatus();
+    
+    // Listen for route changes to check auth status
+    this.$router.beforeEach((to, from, next) => {
+      this.checkAuthStatus();
+      next();
+    });
+  }
+}
+</script>
 
 <style>
 @import url("https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap");
@@ -97,6 +149,21 @@
   background-color: white;
   color: #8e44ad;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.logout-link {
+  color: white;
+  text-decoration: none;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 20px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.logout-link:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
 }
 
 /* Adjusted styles for main content */

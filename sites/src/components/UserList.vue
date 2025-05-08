@@ -44,7 +44,6 @@
             class="cute-input search-input"
           />
         </div>
-        <button class="filter-button" @click="logout">Logout</button>
       </div>
 
       <div class="filters">
