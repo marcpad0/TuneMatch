@@ -36,7 +36,6 @@
     <!-- Favorite Selection Modal -->
     <div v-if="showFavoriteSelectionModal" class="modal favorite-selection-modal">
       <div class="modal-content">
-        <span class="close" @click="closeFavoriteSelectionModal">&times;</span>
         <h2 class="modal-title">Select Your Music Preferences</h2>
         <p class="modal-subtitle">Search for your favorite tracks (max 3 selections).</p>
         
