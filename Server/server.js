@@ -914,77 +914,107 @@ app.post('/users/:id/set-favorites', async (req, res) => {
   }
 });
 
-// Get user's favorite music
+// Get user's favorite music with enhanced artist and genre information
 app.get('/users/:id/favorites', async (req, res) => {
   try {
     const userId = req.params.id;
-    // This would typically fetch from a database
-    // Mocking data for now
-    res.json({
-      tracks: [
-        { 
-          name: "Blinding Lights", 
-          artist: "The Weeknd", 
-          image: "https://i.scdn.co/image/ab67616d0000b273c5649add07ed3720be9d5526",
-          spotifyUrl: "https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b"
-        },
-        { 
-          name: "As It Was", 
-          artist: "Harry Styles", 
-          image: "https://i.scdn.co/image/ab67616d0000b273b46f74097655d7f353caab14",
-          spotifyUrl: "https://open.spotify.com/track/4Dvkj6JhhA12EX05fT7y2e"
-        },
-        { 
-          name: "Bad Habits", 
-          artist: "Ed Sheeran", 
-          image: "https://i.scdn.co/image/ab67616d0000b273ef24c3fdbf856340d55cfeb2",
-          spotifyUrl: "https://open.spotify.com/track/3rmo8F54jFF8OgYsqTxm5d"
-        },
-        { 
-          name: "Stay", 
-          artist: "The Kid LAROI, Justin Bieber", 
-          image: "https://i.scdn.co/image/ab67616d0000b273be08a5ed1d1a230292ae669c",
-          spotifyUrl: "https://open.spotify.com/track/5HCyWlXZPP0y6Gqq8TgA20"
-        },
-        { 
-          name: "Heat Waves", 
-          artist: "Glass Animals", 
-          image: "https://i.scdn.co/image/ab67616d0000b273712701c5e263efc8726b1464",
-          spotifyUrl: "https://open.spotify.com/track/02MWAaffLxlfxAUY7c5dvx"
+    const user = await db.getUserById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Parse favorite_selections JSON string if it exists
+    let parsedSelections;
+    try {
+      parsedSelections = user.favorite_selections ? JSON.parse(user.favorite_selections) : null;
+    } catch (e) {
+      console.error('Error parsing favorite_selections:', e);
+      parsedSelections = null;
+    }
+    
+    // Now use the parsed selections
+    const favoriteTracks = Array.isArray(parsedSelections) ? parsedSelections : [];
+    
+    // Rest of your code remains the same
+    const artistIds = new Set();
+    const artistsMap = {};
+    
+    // First pass: collect unique artist IDs and create a mapping
+    favoriteTracks.forEach(track => {
+      if (track && track.artist) {
+        // Some implementations might store artist ID directly
+        const artistId = track.artistId || track.artist_id;
+        if (artistId) {
+          artistIds.add(artistId);
         }
-      ],
-      artists: [
-        { 
-          name: "The Weeknd", 
-          image: "https://i.scdn.co/image/ab6761610000e5eb64acede1563953f293d4019b",
-          genres: ["pop", "r&b"]
-        },
-        { 
-          name: "Dua Lipa", 
-          image: "https://i.scdn.co/image/ab6761610000e5eb2f71646f25e3a8c899d07c0d",
-          genres: ["pop", "dance pop"]
-        },
-        { 
-          name: "Harry Styles", 
-          image: "https://i.scdn.co/image/ab6761610000e5eb649496768c6f84a6b46a85bc",
-          genres: ["pop", "rock"]
-        },
-        { 
-          name: "Taylor Swift", 
-          image: "https://i.scdn.co/image/ab6761610000e5eb5a00969a4698c3132a15fbb0",
-          genres: ["pop", "country pop"]
-        },
-        { 
-          name: "Drake", 
-          image: "https://i.scdn.co/image/ab6761610000e5eb4293385d324db8558179afd9",
-          genres: ["hip hop", "rap"]
-        }
-      ],
-      genres: ["Pop", "R&B", "Hip Hop", "Rock", "Electronic", "Indie", "Dance"]
+      }
     });
+
+    // Fetch detailed artist information
+    const artists = [];
+    
+    // Only make API calls if we have artist IDs
+    if (artistIds.size > 0) {
+      // Fetch artist details from Deezer
+      const artistPromises = Array.from(artistIds).map(async (artistId) => {
+        try {
+          const response = await axios.get(`${DEEZER_API_BASE_URL}artist/${artistId}`);
+          if (response.data) {
+            // Store artist in our map and add to array
+            artistsMap[artistId] = response.data;
+            return {
+              id: response.data.id,
+              name: response.data.name,
+              picture: response.data.picture_medium || response.data.picture,
+              tracklist: response.data.tracklist,
+              type: 'artist'
+            };
+          }
+        } catch (error) {
+          console.error(`Error fetching artist ${artistId}:`, error.message);
+          return null;
+        }
+      });
+      
+      // Wait for all artist API calls to complete
+      const artistResults = await Promise.all(artistPromises);
+      artists.push(...artistResults.filter(a => a !== null));
+    }
+    
+    // Fetch genre information
+    let genres = [];
+    try {
+      // Get list of genres from Deezer
+      const genresResponse = await axios.get(`${DEEZER_API_BASE_URL}genre`);
+      
+      if (genresResponse.data && genresResponse.data.data) {
+        // Transform genre data to match our format
+        genres = genresResponse.data.data.map(genre => ({
+          id: genre.id,
+          name: genre.name,
+          picture: genre.picture_medium || genre.picture,
+          type: 'genre'
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching genres:', error.message);
+      // If genres fetch fails, we'll return an empty array
+    }
+
+    console.log('Favorite tracks:', favoriteTracks);
+    console.log('Artists:', artists);
+    console.log('Genres:', genres);
+
+    res.json({
+      tracks: favoriteTracks,
+      artists: artists,
+      genres: genres.slice(0, 10) // Limit to top 10 genres to avoid overwhelming response
+    });
+
   } catch (error) {
-    console.error('Error fetching favorites:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error fetching user favorites:', error);
+    res.status(500).json({ message: 'Server error while fetching favorites.' });
   }
 });
 

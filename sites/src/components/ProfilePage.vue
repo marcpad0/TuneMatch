@@ -109,12 +109,9 @@
         <div v-if="activeTab === 'tracks'" class="tab-content">
           <div class="music-grid">
             <div v-for="(track, index) in favorites.tracks.slice(0, 6)" :key="index" 
-                 class="music-card" @click="openSpotifyTrack(track)">
+                 class="music-card" @click="openMusicTrack(track)">
               <div class="music-cover">
-                <img :src="track.image || 'https://via.placeholder.com/150'" :alt="track.name" />
-                <div class="play-overlay">
-                  <span class="play-icon">▶</span>
-                </div>
+                <img :src="track.imageUrl || 'https://via.placeholder.com/150'" :alt="track.name" />
               </div>
               <div class="music-info">
                 <h3 class="music-title">{{ track.name }}</h3>
@@ -129,21 +126,24 @@
           <div class="music-grid">
             <div v-for="(artist, index) in favorites.artists.slice(0, 6)" :key="index" class="music-card">
               <div class="music-cover">
-                <img :src="artist.image || 'https://via.placeholder.com/150'" :alt="artist.name" />
+                <img :src="artist.picture || 'https://via.placeholder.com/150'" :alt="artist.name" />
               </div>
               <div class="music-info">
                 <h3 class="music-title">{{ artist.name }}</h3>
-                <p class="music-artist">{{ artist.genres ? artist.genres[0] : '' }}</p>
               </div>
             </div>
+          </div>
+          <div v-if="favorites.artists.length === 0" class="empty-section">
+            <p>No artist data available</p>
           </div>
         </div>
         
         <!-- Genres Tab Content -->
         <div v-if="activeTab === 'genres'" class="tab-content">
           <div class="genres-grid">
-            <div v-for="(genre, index) in favorites.genres" :key="index" class="genre-bubble">
-              {{ genre }}
+            <div v-for="(genre, index) in favorites.genres.slice(0, 10)" :key="index" class="genre-bubble"
+                 :style="{ backgroundImage: genre.picture ? `url(${genre.picture})` : '' }">
+              {{ genre.name }}
             </div>
           </div>
         </div>
@@ -369,6 +369,8 @@ export default {
         const favoritesResponse = await axios.get(`http://localhost:3000/users/${this.userId}/favorites`, {
           withCredentials: true
         });
+
+        console.log(favoritesResponse)
         
         this.favorites = favoritesResponse.data;
         
@@ -416,10 +418,12 @@ export default {
       return new Date(dateString).toLocaleDateString(undefined, options);
     },
     
+    openMusicTrack(track) {
+      console.log("Opening track:", track);
+    },
+    
     openSpotifyTrack(track) {
-      if (track && track.spotifyUrl) {
-        window.open(track.spotifyUrl, "_blank");
-      }
+      this.openMusicTrack(track);
     },
     
     getMatchLevel(score) {
@@ -893,14 +897,17 @@ export default {
 }
 
 .genre-bubble {
-  background: linear-gradient(135deg, #8844ee, #4466ee);
+  background-color: rgba(136, 68, 238, 0.7);
+  background-size: cover;
+  background-position: center;
+  background-blend-mode: overlay;
   color: white;
   padding: 8px 16px;
   border-radius: 20px;
   font-size: 14px;
   font-weight: 500;
+  text-shadow: 0px 1px 2px rgba(0, 0, 0, 0.8);
 }
-
 /* Modal Styles */
 .modal-overlay {
   position: fixed;
@@ -1033,6 +1040,13 @@ export default {
 
 .delete-btn:hover {
   background: #dc2626;
+}
+
+.empty-section {
+  text-align: center;
+  padding: 30px;
+  color: #64748b;
+  font-style: italic;
 }
 
 /* Responsive Styles */
