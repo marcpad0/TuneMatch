@@ -1,4 +1,5 @@
 <!-- src/components/AdminPage.vue -->
+<!-- src/components/AdminPage.vue -->
 <template>
   <div class="admin-container">
     <div class="admin-card">
@@ -25,6 +26,7 @@
             </div>
           </div>
           <div class="user-card-content">
+            <p><strong>Email:</strong> {{ user.Email }}</p>
             <p><strong>Email Spotify:</strong> {{ user.emailSpotify }}</p>
             <p><strong>Email Twitch:</strong> {{ user.emailTwitch }}</p>
             <p><strong>Email Google:</strong> {{ user.emailGoogle }}</p>
@@ -48,6 +50,14 @@
                   v-model="editingUser.Username"
                   type="text"
                   required
+                  class="cute-input"
+                />
+              </div>
+              <div class="input-group">
+                <label>Email:</label>
+                <input
+                  v-model="editingUser.Email"
+                  type="email"
                   class="cute-input"
                 />
               </div>
