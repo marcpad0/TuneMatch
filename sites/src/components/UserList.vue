@@ -434,7 +434,7 @@ export default {
         
         if (response.data && Array.isArray(response.data)) {
           // Take top 3 tracks from Spotify
-          const topTracks = response.data.slice(0, 3);
+          const topTracks = response.data
           
           // Format to match our expected structure 
           const formattedTracks = topTracks.map(track => ({

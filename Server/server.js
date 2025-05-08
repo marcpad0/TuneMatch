@@ -877,9 +877,9 @@ app.post('/users/:id/set-favorites', async (req, res) => {
   const { id } = req.params;
   const { favorites } = req.body; // favorites will now be an array of Deezer track objects
 
-  // Updated validation for objects
-  if (!Array.isArray(favorites) || favorites.length > 3) {
-    return res.status(400).json({ message: 'Favorites must be an array with a maximum of 3 items.' });
+  // Updated validation for objects - REMOVED the limit of 3 items
+  if (!Array.isArray(favorites)) {
+    return res.status(400).json({ message: 'Favorites must be an array.' });
   }
   // Example validation if favorites are objects like { id, name, artist, imageUrl, type }
   if (favorites.some(fav => 
