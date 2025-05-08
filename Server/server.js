@@ -568,7 +568,7 @@ app.get('/api/deezer/search', async (req, res) => {
       params: {
         q: query,
         limit: limit,
-        order: 'RANKING', // You can also use 'TRACK_ASC', 'ARTIST_ASC', etc.
+        order: 'RANKING',
       },
     });
 
@@ -577,13 +577,14 @@ app.get('/api/deezer/search', async (req, res) => {
         id: track.id,
         name: track.title_short || track.title,
         artist: track.artist.name,
+        artistId: track.artist.id, // Add artistId explicitly
         albumName: track.album.title,
-        imageUrl: track.album.cover_medium || track.album.cover_small || null, // Prefer medium, fallback to small
-        type: 'track', // To identify the item type
+        albumId: track.album.id,  // Add albumId explicitly
+        imageUrl: track.album.cover_medium || track.album.cover_small || null,
+        type: 'track',
       }));
       res.json(tracks);
     } else {
-      // Deezer might return an empty data array or an error structure
       console.error('Deezer API response format unexpected or error:', response.data);
       res.status(500).json({ message: 'Error fetching data from music service or no results.' });
     }
@@ -914,7 +915,7 @@ app.post('/users/:id/set-favorites', async (req, res) => {
   }
 });
 
-// Get user's favorite music with enhanced artist and genre information
+// Then fix the favorites endpoint to handle tracks that don't have artist IDs
 app.get('/users/:id/favorites', async (req, res) => {
   try {
     const userId = req.params.id;
@@ -935,34 +936,99 @@ app.get('/users/:id/favorites', async (req, res) => {
     
     // Now use the parsed selections
     const favoriteTracks = Array.isArray(parsedSelections) ? parsedSelections : [];
+    console.log('Initial favorite tracks count:', favoriteTracks.length);
     
-    // Rest of your code remains the same
+    // Create maps to store artist and genre information
     const artistIds = new Set();
     const artistsMap = {};
+    const genreMap = new Map();
     
-    // First pass: collect unique artist IDs and create a mapping
-    favoriteTracks.forEach(track => {
-      if (track && track.artist) {
-        // Some implementations might store artist ID directly
-        const artistId = track.artistId || track.artist_id;
-        if (artistId) {
-          artistIds.add(artistId);
+    // First, enrich tracks with missing IDs and collect artist IDs
+    const enrichTracksPromises = favoriteTracks.map(async (track, index) => {
+      try {
+        // Get full track details from Deezer
+        const trackResponse = await axios.get(`${DEEZER_API_BASE_URL}track/${track.id}`);
+        if (trackResponse.data) {
+          // Add artistId if missing
+          if (trackResponse.data.artist && !track.artistId) {
+            favoriteTracks[index].artistId = trackResponse.data.artist.id;
+          }
+          
+          // Add albumId if missing
+          if (trackResponse.data.album && !track.albumId) {
+            favoriteTracks[index].albumId = trackResponse.data.album.id;
+          }
+          
+          // Add artist ID to our set
+          if (favoriteTracks[index].artistId) {
+            artistIds.add(favoriteTracks[index].artistId);
+          }
+          
+          // Fetch album to get genres
+          if (trackResponse.data.album) {
+            const albumId = trackResponse.data.album.id;
+            try {
+              const albumResponse = await axios.get(`${DEEZER_API_BASE_URL}album/${albumId}`);
+              if (albumResponse.data && albumResponse.data.genres && albumResponse.data.genres.data) {
+                albumResponse.data.genres.data.forEach(genre => {
+                  if (genre && genre.id) {
+                    genreMap.set(genre.id, {
+                      id: genre.id,
+                      name: genre.name,
+                      picture: genre.picture_medium || genre.picture,
+                      type: 'genre'
+                    });
+                  }
+                });
+              }
+            } catch (albumError) {
+              console.error(`Error fetching album ${albumId}:`, albumError.message);
+            }
+          }
         }
+      } catch (error) {
+        console.error(`Error enriching track ${track.id}:`, error.message);
       }
     });
-
-    // Fetch detailed artist information
-    const artists = [];
     
-    // Only make API calls if we have artist IDs
+    // Wait for all track enrichment to complete
+    await Promise.all(enrichTracksPromises);
+    
+    console.log('Artist IDs found:', artistIds.size);
+    
+    // Fetch artist details
+    const artists = [];
     if (artistIds.size > 0) {
-      // Fetch artist details from Deezer
       const artistPromises = Array.from(artistIds).map(async (artistId) => {
         try {
           const response = await axios.get(`${DEEZER_API_BASE_URL}artist/${artistId}`);
           if (response.data) {
-            // Store artist in our map and add to array
             artistsMap[artistId] = response.data;
+            
+            // Also get artist's top track to find genres
+            try {
+              const topTracksResponse = await axios.get(`${DEEZER_API_BASE_URL}artist/${artistId}/top?limit=1`);
+              if (topTracksResponse.data && topTracksResponse.data.data && topTracksResponse.data.data.length > 0) {
+                const albumId = topTracksResponse.data.data[0].album.id;
+                const albumResponse = await axios.get(`${DEEZER_API_BASE_URL}album/${albumId}`);
+                
+                if (albumResponse.data && albumResponse.data.genres && albumResponse.data.genres.data) {
+                  albumResponse.data.genres.data.forEach(genre => {
+                    if (genre && genre.id) {
+                      genreMap.set(genre.id, {
+                        id: genre.id,
+                        name: genre.name,
+                        picture: genre.picture_medium || genre.picture,
+                        type: 'genre'
+                      });
+                    }
+                  });
+                }
+              }
+            } catch (topTracksError) {
+              console.error(`Error fetching top tracks for artist ${artistId}:`, topTracksError.message);
+            }
+            
             return {
               id: response.data.id,
               name: response.data.name,
@@ -982,34 +1048,36 @@ app.get('/users/:id/favorites', async (req, res) => {
       artists.push(...artistResults.filter(a => a !== null));
     }
     
-    // Fetch genre information
-    let genres = [];
-    try {
-      // Get list of genres from Deezer
-      const genresResponse = await axios.get(`${DEEZER_API_BASE_URL}genre`);
-      
-      if (genresResponse.data && genresResponse.data.data) {
-        // Transform genre data to match our format
-        genres = genresResponse.data.data.map(genre => ({
-          id: genre.id,
-          name: genre.name,
-          picture: genre.picture_medium || genre.picture,
-          type: 'genre'
-        }));
-      }
-    } catch (error) {
-      console.error('Error fetching genres:', error.message);
-      // If genres fetch fails, we'll return an empty array
-    }
+    // Convert genre map to array
+    const genres = Array.from(genreMap.values());
 
-    console.log('Favorite tracks:', favoriteTracks);
-    console.log('Artists:', artists);
-    console.log('Genres:', genres);
+    console.log('Favorite tracks:', favoriteTracks.length);
+    console.log('Artists:', artists.length);
+    console.log('Genres:', genres.length);
+    
+    if (genres.length === 0) {
+      // Fallback: if we couldn't extract genres from albums, get some popular genres
+      try {
+        const genresResponse = await axios.get(`${DEEZER_API_BASE_URL}genre`);
+        if (genresResponse.data && genresResponse.data.data) {
+          const fallbackGenres = genresResponse.data.data.slice(0, 10).map(genre => ({
+            id: genre.id,
+            name: genre.name,
+            picture: genre.picture_medium || genre.picture,
+            type: 'genre'
+          }));
+          console.log('Added fallback genres:', fallbackGenres.length);
+          genres.push(...fallbackGenres);
+        }
+      } catch (genreError) {
+        console.error('Error fetching fallback genres:', genreError.message);
+      }
+    }
 
     res.json({
       tracks: favoriteTracks,
       artists: artists,
-      genres: genres.slice(0, 10) // Limit to top 10 genres to avoid overwhelming response
+      genres: genres.slice(0, 10) // Still limit to top 10 genres
     });
 
   } catch (error) {
@@ -1017,7 +1085,6 @@ app.get('/users/:id/favorites', async (req, res) => {
     res.status(500).json({ message: 'Server error while fetching favorites.' });
   }
 });
-
 // Calculate music compatibility between users
 app.get('/users/compatibility/:user1Id/:user2Id', async (req, res) => {
   try {
