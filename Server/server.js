@@ -935,8 +935,51 @@ app.get('/users/:id/favorites', async (req, res) => {
     }
     
     // Now use the parsed selections
-    const favoriteTracks = Array.isArray(parsedSelections) ? parsedSelections : [];
-    console.log('Initial favorite tracks count:', favoriteTracks.length);
+    let favoriteTracks = Array.isArray(parsedSelections) ? parsedSelections : [];
+    
+    // Special handling for Spotify users - fetch their top tracks too if they have a valid token
+    let spotifyTracks = [];
+    if (user.emailSpotify) {
+      try {
+        const spotifyTokenData = await db.getSpotifyTokenByEmail(user.emailSpotify);
+        
+        if (spotifyTokenData && spotifyTokenData.token) {
+          // Fetch Spotify top tracks
+          const response = await fetch('https://api.spotify.com/v1/me/top/tracks?limit=10', {
+            headers: { Authorization: `Bearer ${spotifyTokenData.token}` }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data && data.items && data.items.length > 0) {
+              spotifyTracks = data.items.map(track => ({
+                id: `spotify_${track.id}`, // Add prefix to avoid ID conflicts
+                name: track.name,
+                artist: track.artists[0].name,
+                artistId: track.artists[0].id,
+                albumName: track.album.name,
+                albumId: track.album.id,
+                imageUrl: track.album.images[1]?.url || track.album.images[0]?.url,
+                type: 'track',
+                source: 'spotify'
+              }));
+              
+              // Add these to the favorites if they're not already there
+              // We'll keep them separate for now to process differently
+              console.log(`Found ${spotifyTracks.length} Spotify tracks for user ${userId}`);
+            }
+          } else {
+            console.error('Failed to fetch Spotify tracks:', response.statusText);
+          }
+        }
+      } catch (spotifyError) {
+        console.error('Error fetching Spotify data:', spotifyError);
+      }
+    }
+
+    // Initial count of all tracks
+    console.log('Database favorite tracks:', favoriteTracks.length);
+    console.log('Spotify favorite tracks:', spotifyTracks.length);
     
     // Create maps to store artist and genre information
     const artistIds = new Set();
@@ -945,6 +988,8 @@ app.get('/users/:id/favorites', async (req, res) => {
     
     // First, enrich tracks with missing IDs and collect artist IDs
     const enrichTracksPromises = favoriteTracks.map(async (track, index) => {
+      if (!track.id) return; // Skip if no ID
+      
       try {
         // Get full track details from Deezer
         const trackResponse = await axios.get(`${DEEZER_API_BASE_URL}track/${track.id}`);
@@ -991,8 +1036,56 @@ app.get('/users/:id/favorites', async (req, res) => {
       }
     });
     
+    // For Spotify tracks, try to find matching tracks on Deezer to get genres
+    const spotifyEnrichPromises = spotifyTracks.map(async (spotifyTrack) => {
+      try {
+        // Search for the track on Deezer
+        const searchQuery = `${spotifyTrack.artist} ${spotifyTrack.name}`;
+        const searchResponse = await axios.get(`${DEEZER_API_BASE_URL}search/track`, {
+          params: {
+            q: searchQuery,
+            limit: 1
+          }
+        });
+        
+        if (searchResponse.data && 
+            searchResponse.data.data && 
+            searchResponse.data.data.length > 0) {
+          const deezerTrack = searchResponse.data.data[0];
+          
+          // Try to get genres from the album
+          if (deezerTrack.album) {
+            try {
+              const albumResponse = await axios.get(`${DEEZER_API_BASE_URL}album/${deezerTrack.album.id}`);
+              if (albumResponse.data && albumResponse.data.genres && albumResponse.data.genres.data) {
+                albumResponse.data.genres.data.forEach(genre => {
+                  if (genre && genre.id) {
+                    genreMap.set(genre.id, {
+                      id: genre.id,
+                      name: genre.name,
+                      picture: genre.picture_medium || genre.picture,
+                      type: 'genre'
+                    });
+                  }
+                });
+              }
+            } catch (albumError) {
+              console.error(`Error fetching album for Spotify track:`, albumError.message);
+            }
+          }
+          
+          // Add the artist ID to our set
+          if (deezerTrack.artist && deezerTrack.artist.id) {
+            artistIds.add(deezerTrack.artist.id);
+          }
+        }
+      } catch (error) {
+        console.error(`Error enriching Spotify track:`, error.message);
+      }
+    });
+    
     // Wait for all track enrichment to complete
-    await Promise.all(enrichTracksPromises);
+    await Promise.all([...enrichTracksPromises, ...spotifyEnrichPromises]);
     
     console.log('Artist IDs found:', artistIds.size);
     
@@ -1050,8 +1143,24 @@ app.get('/users/:id/favorites', async (req, res) => {
     
     // Convert genre map to array
     const genres = Array.from(genreMap.values());
+    
+    // Combine Deezer and Spotify tracks, but don't duplicate
+    const allTracks = [...favoriteTracks];
+    
+    // Add Spotify tracks that aren't already in the list (checking by name + artist as IDs won't match)
+    for (const spotifyTrack of spotifyTracks) {
+      // Check if this track is already in the favorites (by name and artist)
+      const isDuplicate = favoriteTracks.some(track => 
+        track.name === spotifyTrack.name && 
+        track.artist === spotifyTrack.artist
+      );
+      
+      if (!isDuplicate) {
+        allTracks.push(spotifyTrack);
+      }
+    }
 
-    console.log('Favorite tracks:', favoriteTracks.length);
+    console.log('Total tracks:', allTracks.length);
     console.log('Artists:', artists.length);
     console.log('Genres:', genres.length);
     
@@ -1075,7 +1184,7 @@ app.get('/users/:id/favorites', async (req, res) => {
     }
 
     res.json({
-      tracks: favoriteTracks,
+      tracks: allTracks,
       artists: artists,
       genres: genres.slice(0, 10) // Still limit to top 10 genres
     });
@@ -1085,6 +1194,7 @@ app.get('/users/:id/favorites', async (req, res) => {
     res.status(500).json({ message: 'Server error while fetching favorites.' });
   }
 });
+
 // Calculate music compatibility between users
 app.get('/users/compatibility/:user1Id/:user2Id', async (req, res) => {
   try {
