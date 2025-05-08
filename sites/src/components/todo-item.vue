@@ -120,9 +120,6 @@ export default {
           Password: this.password,
           DateBorn: this.dateBorn,
         });
-        alert(
-          `Utente registrato con successo con ID: ${response.data.message}`
-        );
         this.$router.push("/");
       } catch (error) {
         console.error("Errore durante la registrazione:", error);

@@ -41,7 +41,28 @@
           </div>
           
           <div class="user-info">
-            <h2 class="username">{{ userData.Username }}</h2>
+            <div class="username-container">
+              <h2 class="username">{{ userData.Username }}</h2>
+              
+              <!-- Gear icon and settings dropdown - Only visible on own profile -->
+              <div v-if="isOwnProfile" class="settings-container">
+                <button class="gear-button" @click="toggleSettingsMenu">
+                  <span class="gear-icon">⚙️</span>
+                </button>
+                
+                <div v-if="showSettingsMenu" class="settings-dropdown" ref="settingsMenu">
+                  <div class="dropdown-item" @click="openModifyModal">
+                    <span class="dropdown-icon">✏️</span>
+                    Modifica Profilo
+                  </div>
+                  <div class="dropdown-item delete-item" @click="openDeleteConfirmation">
+                    <span class="dropdown-icon">🗑️</span>
+                    Elimina Account
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             <div class="user-meta">
               <span class="meta-item">
                 <span class="icon">📍</span>
@@ -189,6 +210,71 @@
       </div>
     </div>
 
+    <!-- Modify Profile Modal -->
+    <div v-if="showModifyModal" class="modal-overlay" @click.self="closeModifyModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>Modifica Profilo</h3>
+          <button @click="closeModifyModal" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="input-group">
+            <label for="modifyUsername">Username:</label>
+            <input 
+              id="modifyUsername" 
+              v-model="modifyData.Username" 
+              class="form-input" 
+              placeholder="Username"
+            />
+          </div>
+          
+          <div class="input-group">
+            <label for="modifyPosition">Posizione:</label>
+            <input 
+              id="modifyPosition" 
+              v-model="modifyData.Position" 
+              class="form-input" 
+              placeholder="es. Milano"
+            />
+          </div>
+          
+          <div class="input-group">
+            <label for="modifyDateBorn">Data di Nascita:</label>
+            <input 
+              id="modifyDateBorn" 
+              type="date" 
+              v-model="modifyData.DateBorn" 
+              class="form-input"
+            />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="closeModifyModal" class="cancel-btn">Annulla</button>
+          <button @click="updateProfile" class="send-btn">Salva Modifiche</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div v-if="showDeleteConfirmation" class="modal-overlay" @click.self="closeDeleteConfirmation">
+      <div class="modal">
+        <div class="modal-header delete-header">
+          <h3>Elimina Account</h3>
+          <button @click="closeDeleteConfirmation" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="warning-message">
+            <p><strong>Attenzione!</strong> Questa azione non può essere annullata.</p>
+            <p>Sei sicuro di voler eliminare definitivamente il tuo account?</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="closeDeleteConfirmation" class="cancel-btn">Annulla</button>
+          <button @click="deleteAccount" class="delete-btn">Elimina Account</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Message Dialog -->
     <div v-if="showMessageDialog" class="modal-overlay">
       <div class="modal">
@@ -249,6 +335,16 @@ export default {
       userOnlineStatus: false,
       previousUsers: [],
       ws: null,
+      currentUserId: null,
+      isOwnProfile: false,
+      showSettingsMenu: false,
+      showModifyModal: false,
+      showDeleteConfirmation: false,
+      modifyData: {
+        Username: "",
+        Position: "",
+        DateBorn: "",
+      }
     };
   },
   computed: {
@@ -258,8 +354,11 @@ export default {
   },
   async mounted() {
     try {
+      await this.getCurrentUser();
       await this.fetchUserData(this.userId);
       this.connectToSocket();
+      this.isOwnProfile = this.currentUserId && this.currentUserId.toString() === this.userId.toString();
+      document.addEventListener('click', this.handleOutsideClick);
     } catch (error) {
       this.error = "Failed to load user profile";
       this.loading = false;
@@ -274,35 +373,129 @@ export default {
     if (this.ws) {
       this.ws.close();
     }
+    document.removeEventListener('click', this.handleOutsideClick);
   },
   methods: {
+    async getCurrentUser() {
+      try {
+        const response = await axios.get("http://localhost:3000/auth/me", {
+          withCredentials: true
+        });
+        if (response.data && response.data.userId) {
+          this.currentUserId = response.data.userId;
+        }
+      } catch (error) {
+        console.log("Not logged in or error fetching current user");
+      }
+    },
+    
+    toggleSettingsMenu(event) {
+      event.stopPropagation();
+      this.showSettingsMenu = !this.showSettingsMenu;
+    },
+    
+    handleOutsideClick(event) {
+      const settingsMenu = this.$refs.settingsMenu;
+      const gearButton = event.target.closest('.gear-button');
+      
+      if (this.showSettingsMenu && settingsMenu && !settingsMenu.contains(event.target) && !gearButton) {
+        this.showSettingsMenu = false;
+      }
+    },
+    
+    openModifyModal() {
+      this.showSettingsMenu = false;
+      this.modifyData = {
+        Username: this.userData.Username || "",
+        Position: this.userData.Position || "",
+        DateBorn: this.userData.DateBorn || ""
+      };
+      this.showModifyModal = true;
+    },
+    
+    closeModifyModal() {
+      this.showModifyModal = false;
+    },
+    
+    openDeleteConfirmation() {
+      this.showSettingsMenu = false;
+      this.showDeleteConfirmation = true;
+    },
+    
+    closeDeleteConfirmation() {
+      this.showDeleteConfirmation = false;
+    },
+    
+    async updateProfile() {
+      try {
+        await axios.put(
+          `http://localhost:3000/users/${this.userId}`,
+          {
+            ...this.userData,
+            Username: this.modifyData.Username,
+            Position: this.modifyData.Position,
+            DateBorn: this.modifyData.DateBorn
+          },
+          {
+            headers: {
+              userId: this.currentUserId
+            },
+            withCredentials: true
+          }
+        );
+        
+        await this.fetchUserData(this.userId);
+        alert("Profilo aggiornato con successo");
+        this.closeModifyModal();
+      } catch (error) {
+        console.error("Error updating profile:", error);
+        alert("Errore durante l'aggiornamento del profilo. Riprova più tardi.");
+      }
+    },
+    
+    async deleteAccount() {
+      try {
+        await axios.delete(`http://localhost:3000/users/${this.userId}`, {
+          headers: {
+            userId: this.currentUserId
+          },
+          withCredentials: true
+        });
+        
+        await axios.post("http://localhost:3000/logout", {}, {
+          withCredentials: true
+        });
+        this.isAuthenticated = false;
+        this.$router.push("/");
+      } catch (error) {
+        console.error("Error deleting account:", error);
+        alert("Errore durante l'eliminazione dell'account. Riprova più tardi.");
+      }
+    },
+    
     async fetchUserProfile() {
       this.loading = true;
       this.error = null;
       
       try {
-        // Fetch user basic info
         const userResponse = await axios.get(`http://localhost:3000/users/${this.userId}`, {
           withCredentials: true
         });
         
         this.user = userResponse.data;
         
-        // Fetch user's favorite music
         const favoritesResponse = await axios.get(`http://localhost:3000/users/${this.userId}/favorites`, {
           withCredentials: true
         });
         
         this.favorites = favoritesResponse.data;
         
-        // Check if logged in user and calculate compatibility
         try {
           const meResponse = await axios.get("http://localhost:3000/auth/me", {
             withCredentials: true
           });
           
           if (meResponse.data && meResponse.data.id !== parseInt(this.userId)) {
-            // Calculate music compatibility
             const compatibilityResponse = await axios.get(
               `http://localhost:3000/users/compatibility/${meResponse.data.id}/${this.userId}`, 
               { withCredentials: true }
@@ -336,14 +529,12 @@ export default {
     },
 
     connectToSocket() {
-      // Use WebSocket directly instead of Socket.IO
       try {
-        const wsUrl = "ws://localhost:3000"; // Use the ws:// protocol for WebSocket
+        const wsUrl = "ws://localhost:3000";
         this.socket = new WebSocket(wsUrl);
         
         this.socket.onopen = () => {
           console.log("WebSocket connection established");
-          // Send user ID to check status when connection opens
           this.socket.send(JSON.stringify({
             type: "checkUserStatus",
             userId: this.userId
@@ -367,7 +558,6 @@ export default {
         
         this.socket.onclose = (event) => {
           console.log("WebSocket connection closed. Code:", event.code);
-          // Try to reconnect after 5 seconds
           setTimeout(() => this.connectToSocket(), 5000);
         };
         
@@ -450,6 +640,7 @@ export default {
         }
         if (newId) {
           this.fetchUserData(newId);
+          this.isOwnProfile = this.currentUserId && this.currentUserId.toString() === newId.toString();
         }
       }
     }
@@ -1292,6 +1483,134 @@ export default {
 
 .back-button:hover .back-icon {
   transform: translateX(-3px);
+}
+
+/* Settings Button & Dropdown */
+.username-container {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.settings-container {
+  position: relative;
+}
+
+.gear-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.gear-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.gear-icon {
+  font-size: 20px;
+}
+
+.settings-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  width: 200px;
+  z-index: 10;
+  overflow: hidden;
+}
+
+.dropdown-item {
+  padding: 12px 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.dropdown-item:hover {
+  background-color: #f3f4f6;
+}
+
+.dropdown-icon {
+  font-size: 16px;
+}
+
+.delete-item {
+  color: #ef4444;
+}
+
+.delete-item:hover {
+  background-color: #fee2e2;
+}
+
+/* Form inputs */
+.form-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 15px;
+  margin-top: 5px;
+  transition: border-color 0.3s;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #4466ee;
+}
+
+.input-group {
+  margin-bottom: 20px;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+/* Delete confirmation styles */
+.delete-header {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.warning-message {
+  text-align: center;
+}
+
+.warning-message p {
+  margin: 10px 0;
+}
+
+.delete-btn {
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.delete-btn:hover {
+  background-color: #dc2626;
+}
+
+/* Responsive styles for settings dropdown */
+@media (max-width: 768px) {
+  .settings-dropdown {
+    left: 0;
+    right: auto;
+  }
 }
 
 /* ===== RESPONSIVE STYLES ===== */
