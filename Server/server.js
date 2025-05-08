@@ -1798,10 +1798,6 @@ async function updateListeningStatuses() {
       }
     }
 
-    // Update Google Listening Status (Esempio: Ottieni informazioni dall'API di Google, se applicabile)
-    // Nota: Google non ha un'API simile a Spotify per lo stato di riproduzione attuale.
-    // Potresti implementare altre funzionalità relative a Google qui.
-
     broadcastUserStatuses();
   } catch (error) {
     console.error('Error updating listening statuses:', error);
