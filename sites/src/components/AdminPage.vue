@@ -54,14 +54,6 @@
                 />
               </div>
               <div class="input-group">
-                <label>Email:</label>
-                <input
-                  v-model="editingUser.Email"
-                  type="email"
-                  class="cute-input"
-                />
-              </div>
-              <div class="input-group">
                 <label>Position:</label>
                 <input
                   v-model="editingUser.Position"
