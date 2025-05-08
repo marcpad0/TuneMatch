@@ -192,6 +192,19 @@
         </div>
       </div>
 
+      <div v-if="isSpotifyUser && spotifyFavorites.length > 0" class="spotify-notice">
+  <div class="spotify-notice-content">
+    <i class="fab fa-spotify spotify-icon"></i>
+    <div>
+      <h4>Spotify Integration Active</h4>
+      <p>Your favorite tracks are automatically synchronized from Spotify.</p>
+      <p v-if="spotifyFavoritesLastUpdated" class="update-time">
+        Last updated: {{ new Date(spotifyFavoritesLastUpdated).toLocaleString() }}
+      </p>
+    </div>
+  </div>
+</div>
+
       <!-- Desktop Table -->
       <div class="table-responsive desktop-only">
         <table class="user-table">
@@ -318,6 +331,13 @@ export default {
       favoriteSelectionError: "",
       hasSearchedDeezer: false,
       hasPreviouslySavedFavorites: false, // To allow saving empty if they had favs before
+      
+      // New properties for Spotify integration
+      isSpotifyUser: false,
+      spotifyFavorites: [],
+      isLoadingSpotifyFavorites: false,
+      spotifyFavoritesError: "",
+      spotifyFavoritesLastUpdated: null,
     };
   },
   computed: {
@@ -370,22 +390,165 @@ export default {
           this.userData = sessionResponse.data;
           this.userId = sessionResponse.data.userId;
           
+          // Check if user is logged in via Spotify
+          this.isSpotifyUser = sessionResponse.data.emailSpotify && sessionResponse.data.emailSpotify.length > 0;
+          
           await this.fetchCurrentUserDetails(this.userId); 
+          
+          // For Spotify users, fetch their favorites first
+          if (this.isSpotifyUser) {
+            await this.fetchAndSaveSpotifyFavorites();
+          }
+          
           await this.checkRequiredFields(); // This will call checkRequiredSelections internally
 
           if (!this.showProfileCompletion && !this.showFavoriteSelectionModal) {
             await this.recuperaUtenti();
-            // this.favorite(); // Review this method
             this.setupWebSocket();
+            
+            // Set up periodic check for Spotify favorites
+            if (this.isSpotifyUser) {
+              this.setupSpotifyFavoritesPeriodic();
+            }
           }
         } else {
           this.$router.push("/");
         }
       } catch (error) {
         console.error("Error in getUserData:", error);
-        // this.$router.push("/"); 
       }
     },
+    
+    // New method to fetch and save Spotify favorites
+    async fetchAndSaveSpotifyFavorites() {
+      if (!this.isSpotifyUser) return;
+      
+      this.isLoadingSpotifyFavorites = true;
+      this.spotifyFavoritesError = "";
+      
+      try {
+        // Fetch user's favorites from the backend endpoint (which calls Spotify API)
+        const response = await axios.get("http://localhost:3000/favorites", {
+          withCredentials: true
+        });
+        
+        if (response.data && Array.isArray(response.data)) {
+          // Take top 3 tracks from Spotify
+          const topTracks = response.data.slice(0, 3);
+          
+          // Format to match our expected structure 
+          const formattedTracks = topTracks.map(track => ({
+            id: track.id,
+            name: track.name,
+            artist: track.artists.map(a => a.name).join(", "),
+            albumName: track.album.name,
+            imageUrl: track.album.images && track.album.images[0] ? track.album.images[0].url : null,
+            link: track.external_urls?.spotify || "",
+            type: 'track'
+          }));
+          
+          // Save formatted tracks to instance data
+          this.spotifyFavorites = formattedTracks;
+          
+          // Use these as the selected favorites
+          this.selectedFavorites = [...formattedTracks];
+          this.hasPreviouslySavedFavorites = true;
+          
+          // Save to database via API
+          await this.saveSpotifyFavoritesToDatabase(formattedTracks);
+          
+          this.spotifyFavoritesLastUpdated = new Date();
+          console.log("Spotify favorites updated:", this.spotifyFavorites);
+        }
+      } catch (error) {
+        console.error("Error fetching Spotify favorites:", error);
+        this.spotifyFavoritesError = "Failed to fetch your Spotify favorites. You may need to select favorites manually.";
+      } finally {
+        this.isLoadingSpotifyFavorites = false;
+      }
+    },
+    
+    // Save Spotify favorites to database
+    async saveSpotifyFavoritesToDatabase(tracks) {
+      try {
+        await axios.post(`http://localhost:3000/users/${this.userId}/set-favorites`, 
+          { favorites: tracks }, 
+          { withCredentials: true }
+        );
+        console.log("Spotify favorites saved to database");
+      } catch (error) {
+        console.error("Error saving Spotify favorites to database:", error);
+        throw error; // Re-throw to handle in calling method
+      }
+    },
+    
+    // Set up periodic check for Spotify favorites
+    setupSpotifyFavoritesPeriodic() {
+      // Check every 15 minutes
+      this.spotifyCheckInterval = setInterval(() => {
+        this.fetchAndSaveSpotifyFavorites();
+      }, 15 * 60 * 1000);
+    },
+    
+    async checkRequiredSelections() {
+      if (!this.currentUserDetails) {
+        // Attempt to fetch if not available, though it should be by now
+        if (this.userId) await this.fetchCurrentUserDetails(this.userId);
+        if (!this.currentUserDetails) return; 
+      }
+
+      // For Spotify users who already have favorites fetched, don't show selection modal
+      if (this.isSpotifyUser && this.spotifyFavorites.length > 0) {
+        this.showFavoriteSelectionModal = false;
+        return;
+      }
+
+      const loggedInViaSpotify = this.currentUserDetails.emailSpotify && this.currentUserDetails.emailSpotify.length > 0;
+      const favoritesAlreadySet = this.currentUserDetails.favorite_selections && 
+                                 Array.isArray(this.currentUserDetails.favorite_selections) && 
+                                 this.currentUserDetails.favorite_selections.length > 0;
+
+      if (!loggedInViaSpotify && !favoritesAlreadySet) {
+        this.showFavoriteSelectionModal = true;
+        this.deezerSearchQuery = "";
+        this.deezerSearchResults = [];
+        this.deezerSearchError = "";
+        this.favoriteSelectionError = "";
+        this.hasSearchedDeezer = false;
+      } else {
+        this.showFavoriteSelectionModal = false;
+      }
+    },
+    
+    // Cleanup on component destruction
+    clearPeriodicChecks() {
+      if (this.spotifyCheckInterval) {
+        clearInterval(this.spotifyCheckInterval);
+      }
+    },
+
+    // Modified saveSelectedFavorites to handle both manual and Spotify cases
+    async saveSelectedFavorites() {
+      this.favoriteSelectionError = "";
+      
+      try {
+        await axios.post(`http://localhost:3000/users/${this.userId}/set-favorites`, 
+          { favorites: this.selectedFavorites }, 
+          { withCredentials: true }
+        );
+        this.closeFavoriteSelectionModal();
+        await this.fetchCurrentUserDetails(this.userId); 
+        
+        if(!this.showProfileCompletion && !this.showFavoriteSelectionModal) {
+            await this.recuperaUtenti();
+        }
+
+      } catch (error) {
+        console.error("Error saving favorites:", error);
+        this.favoriteSelectionError = error.response?.data?.message || "Failed to save preferences.";
+      }
+    },
+    
     async fetchCurrentUserDetails(userId) {
       try {
         const response = await axios.get(`http://localhost:3000/users/${userId}`, {
@@ -423,84 +586,12 @@ export default {
             await this.checkRequiredSelections(); 
             if (!this.showFavoriteSelectionModal && !this.showProfileCompletion) {
                 await this.recuperaUtenti();
-                // this.favorite(); 
                 this.setupWebSocket();
             }
           }
         }
       } catch (error) {
         console.error("Errore nel controllo dei campi obbligatori:", error);
-      }
-    },
-
-    async checkRequiredSelections() {
-      if (!this.currentUserDetails) {
-        // Attempt to fetch if not available, though it should be by now
-        if (this.userId) await this.fetchCurrentUserDetails(this.userId);
-        if (!this.currentUserDetails) return; 
-      }
-
-      const loggedInViaSpotify = this.currentUserDetails.emailSpotify && this.currentUserDetails.emailSpotify.length > 0;
-      const favoritesAlreadySet = this.currentUserDetails.favorite_selections && Array.isArray(this.currentUserDetails.favorite_selections) && this.currentUserDetails.favorite_selections.length > 0;
-
-      if (!loggedInViaSpotify && !favoritesAlreadySet) {
-        this.showFavoriteSelectionModal = true;
-        this.deezerSearchQuery = "";
-        this.deezerSearchResults = [];
-        this.deezerSearchError = "";
-        this.favoriteSelectionError = "";
-        this.hasSearchedDeezer = false;
-        // selectedFavorites is already initialized by fetchCurrentUserDetails
-      } else {
-        this.showFavoriteSelectionModal = false;
-      }
-    },
-    async getUserById(userId) {
-      try {
-        const response = await axios.get(`http://localhost:3000/users?id=${userId}`, {
-          headers: { userId: this.userId },
-          withCredentials: true,
-        });
-        return response.data;
-      } catch (error) {
-        console.error("Errore nel recupero dettagli utente:", error);
-        return null;
-      }
-    },
-    async completeProfile() {
-      try {
-        this.profileData.Password = this.currentUserDetails.Password || "";
-        
-        await axios.put(
-          `http://localhost:3000/users/${this.userId}`,
-          {
-            ...this.currentUserDetails,
-            Position: this.profileData.Position,
-            DateBorn: this.profileData.DateBorn,
-            Password: this.profileData.Password,
-          },
-          {
-            headers: {
-              userId: this.userId,
-            },
-            withCredentials: true,
-          }
-        );
-        
-        this.showProfileCompletion = false;
-        
-        await this.fetchCurrentUserDetails(this.userId); 
-        await this.checkRequiredSelections(); 
-        
-        if (!this.showFavoriteSelectionModal && !this.showProfileCompletion) { 
-            await this.recuperaUtenti();
-            // this.favorite();
-            this.setupWebSocket();
-        }
-        
-      } catch (error) {
-        console.error("Errore nell'aggiornamento del profilo:", error);
-        alert("Impossibile aggiornare il profilo. Riprova più tardi.");
       }
     },
     async recuperaUtenti() {
@@ -596,28 +687,39 @@ export default {
     removeSelectedFavorite(itemToRemove) {
         this.selectedFavorites = this.selectedFavorites.filter(item => item.id !== itemToRemove.id);
     },
-
-    async saveSelectedFavorites() {
-      this.favoriteSelectionError = "";
-      // Allow saving empty array if they previously had favorites (to clear them)
-      // Or if it's their first time and they choose not to select any.
-      // The button is disabled if selectedFavorites is 0 AND they haven't saved before.
-
+    async completeProfile() {
       try {
-        await axios.post(`http://localhost:3000/users/${this.userId}/set-favorites`, 
-          { favorites: this.selectedFavorites }, 
-          { withCredentials: true }
-        );
-        this.closeFavoriteSelectionModal();
-        await this.fetchCurrentUserDetails(this.userId); 
+        this.profileData.Password = this.currentUserDetails.Password || "";
         
-        if(!this.showProfileCompletion && !this.showFavoriteSelectionModal) {
+        await axios.put(
+          `http://localhost:3000/users/${this.userId}`,
+          {
+            ...this.currentUserDetails,
+            Position: this.profileData.Position,
+            DateBorn: this.profileData.DateBorn,
+            Password: this.profileData.Password,
+          },
+          {
+            headers: {
+              userId: this.userId,
+            },
+            withCredentials: true,
+          }
+        );
+        
+        this.showProfileCompletion = false;
+        
+        await this.fetchCurrentUserDetails(this.userId); 
+        await this.checkRequiredSelections(); 
+        
+        if (!this.showFavoriteSelectionModal && !this.showProfileCompletion) { 
             await this.recuperaUtenti();
+            this.setupWebSocket();
         }
-
+        
       } catch (error) {
-        console.error("Error saving favorites:", error);
-        this.favoriteSelectionError = error.response?.data?.message || "Failed to save preferences.";
+        console.error("Errore nell'aggiornamento del profilo:", error);
+        alert("Impossibile aggiornare il profilo. Riprova più tardi.");
       }
     },
     puòModificare(utente) {
@@ -838,6 +940,10 @@ export default {
   mounted() {
     this.getUserData();
   },
+  beforeUnmount() {
+    // Clean up periodic checks
+    this.clearPeriodicChecks();
+  }
 };
 </script>
 
@@ -878,6 +984,43 @@ export default {
 .search-button:disabled {
   background-color: #cccccc;
   cursor: not-allowed;
+}
+
+/* Spotify Notice */
+.spotify-notice {
+  background-color: rgba(30, 215, 96, 0.15);
+  border: 1px solid rgba(30, 215, 96, 0.3);
+  border-radius: 12px;
+  padding: 15px;
+  margin: 20px 0;
+}
+
+.spotify-notice-content {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.spotify-notice h4 {
+  margin: 0 0 5px 0;
+  color: #1db954;
+}
+
+.spotify-notice p {
+  margin: 0;
+  font-size: 14px;
+  color: #333;
+}
+
+.update-time {
+  font-size: 12px;
+  color: #666;
+  margin-top: 5px !important;
+}
+
+.spotify-icon {
+  color: #1db954;
+  font-size: 2rem;
 }
 
 .deezer-results-container { /* Renamed */
