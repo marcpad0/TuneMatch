@@ -4,7 +4,7 @@ let users = [
     Username: 'johndoe',
     Email: 'john@example.com',
     emailSpotify: 'johndoe@spotify.com',
-    emailTwitch: 'johndoe@Twitch.com',
+    emailTwitch: '',
     emailGoogle: 'johndoe@google.com',
     isAdmin: 1,
     Position: 'Treviglio',
@@ -17,7 +17,7 @@ let users = [
     Username: 'janedoe',
     Email: 'jane@example.com',
     emailSpotify: null, // To test the new modal
-    emailTwitch: 'janedoe@Twitch.com',
+    emailTwitch: '',
     emailGoogle: 'janedoe@google.com',
     isAdmin: 0,
     Position: 'Milano',
@@ -30,7 +30,7 @@ let users = [
     Username: 'spotifyuser',
     Email: 'spotify@example.com',
     emailSpotify: 'spotifyuser@spotify.com',
-    emailTwitch: 'spotifyuser@Twitch.com',
+    emailTwitch: '',
     emailGoogle: 'spotifyuser@google.com',
     isAdmin: 0,
     Position: 'Roma',
@@ -192,6 +192,7 @@ const dbMockOperations = {
     if (DateBorn) {
       result = result.filter(u => u.DateBorn === DateBorn);
     }
+    console.log('Filtered users:', result); // Log per vedere gli utenti
     return Promise.resolve(result);
   },
 
@@ -251,9 +252,13 @@ const dbMockOperations = {
   },
 
   getAllSpotifyTokens: () => {
+    // Check if spotifyTokens is defined
+    if (typeof spotifyTokens === 'undefined') {
+      console.warn('Warning: spotifyTokens is undefined in getAllSpotifyTokens, initializing empty array');
+      spotifyTokens = []; // Initialize if undefined
+    }
     return Promise.resolve([...spotifyTokens]);
   },
-
   // ====================
   // Operazioni sui Token Twitch
   // ====================

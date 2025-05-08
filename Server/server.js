@@ -712,10 +712,13 @@ app.post('/logout', (req, res) => {
 app.get('/users', async (req, res) => {
   const { id, Position, DateBorn } = req.query;
 
+  console.log('Query parameters:', req.query); // Log the query parameters for debugging
+
   try {
     if (id) {
       // If ID is provided, get specific user
       const user = await db.getUserById(id);
+      console.log('User found:', user);
       if (user) {
         res.send([user]); // Return as array to maintain consistent response format
       } else {
@@ -723,6 +726,7 @@ app.get('/users', async (req, res) => {
       }
     } else {
       // Otherwise get filtered list
+      console.log('Fetching users with filters:', { Position, DateBorn });
       const usersList = await db.getUsers({ Position, DateBorn });
       res.send(usersList);
     }

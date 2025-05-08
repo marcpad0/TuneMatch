@@ -260,33 +260,6 @@
           </tbody>
         </table>
       </div>
-
-      <!-- Favorite Tracks -->
-      <div class="favorite-tracks-section">
-        <h3 class="subtitle">Brani Preferiti</h3>
-        <div class="favorites-grid">
-          <div
-            v-for="track in favorites"
-            :key="track.id"
-            class="favorite-track-card"
-            @click="openSpotifyTrack(track)"
-          >
-            <img
-              v-if="track.album && track.album.images && track.album.images[0]"
-              :src="track.album.images[0].url"
-              alt="Album Art"
-              class="album-art"
-            />
-            <div class="track-info">
-              <h4>{{ track.name }}</h4>
-              <p>
-                <strong>Artista:</strong> {{ getArtistNames(track.artists) }}
-              </p>
-              <p><strong>Album:</strong> {{ track.album.name }}</p>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -616,6 +589,8 @@ export default {
 
           xhr.send();
         });
+
+        console.log("Response:", response);
 
         this.utenti = response.filter((user) => !user.isAdmin);
         this.utenti = this.utenti.filter((user) => !user.emailTwitch);
