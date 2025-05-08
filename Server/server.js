@@ -1194,7 +1194,6 @@ app.get('/users/:id/favorites', async (req, res) => {
     res.status(500).json({ message: 'Server error while fetching favorites.' });
   }
 });
-
 // Calculate music compatibility between users
 app.get('/users/compatibility/:user1Id/:user2Id', async (req, res) => {
   try {
