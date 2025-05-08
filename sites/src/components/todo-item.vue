@@ -17,14 +17,14 @@
           </div>
         </div>
         <div class="input-group">
-          <label for="emailSpotify">Email Spotify</label>
+          <label for="email">Email</label>
           <div class="input-wrapper">
             <span class="input-icon">📧</span>
             <input
-              id="emailSpotify"
-              v-model="emailSpotify"
+              id="email"
+              v-model="email"
               type="email"
-              placeholder="Inserisci la tua email di Spotify"
+              placeholder="Inserisci la tua email"
               required
             />
           </div>
@@ -100,11 +100,11 @@
 import axios from "axios";
 
 export default {
-  name: "tofo-item", // Updated component name
+  name: "todo-item", 
   data() {
     return {
       username: "",
-      emailSpotify: "",
+      email: "",
       position: "",
       password: "",
       dateBorn: "",
@@ -115,7 +115,7 @@ export default {
       try {
         const response = await axios.post("http://localhost:3000/users", {
           Username: this.username,
-          emailSpotify: this.emailSpotify,
+          Email: this.email,
           Position: this.position,
           Password: this.password,
           DateBorn: this.dateBorn,
@@ -127,7 +127,7 @@ export default {
       } catch (error) {
         console.error("Errore durante la registrazione:", error);
         if (error.response && error.response.status === 409) {
-          alert("Registrazione fallita: Nome utente già in uso.");
+          alert("Registrazione fallita: Nome utente o email già in uso.");
         } else if (
           error.response &&
           error.response.data &&

@@ -359,41 +359,42 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 // Create user
 app.post('/users', async (req, res) => {
-  const { Username, emailSpotify, emailTwitch, emailGoogle, Position, Password, DateBorn } = req.body;
+  const { Username, Email, emailSpotify, emailTwitch, emailGoogle, Position, Password, DateBorn } = req.body;
 
   if (!Username || !Password) {
-    return res.status(400).send({ message: 'Username e Password sono obbligatori.' });
+    return res.status(400).json({ message: "Username e Password sono obbligatori." });
   }
 
   try {
+    // Check if username already exists
     const existingUser = await db.getUserByUsername(Username);
     if (existingUser) {
-      return res.status(409).send({ message: 'Nome utente già in uso.' });
+      return res.status(409).json({ message: "Nome utente già in uso." });
     }
 
-    // Optionally check for emailTwitch uniqueness
-    if (emailTwitch) {
-      const existingTwitchUser = await db.getUserByEmailTwitch(emailTwitch);
-      if (existingTwitchUser) {
-        return res.status(409).send({ message: 'Email Twitch già in uso.' });
+    // Check if email already exists
+    if (Email) {
+      const existingEmail = await db.getUserByEmail(Email);
+      if (existingEmail) {
+        return res.status(409).json({ message: "Email già in uso." });
       }
     }
 
-    // Optionally check for emailGoogle uniqueness
-    if (emailGoogle) {
-      const existingGoogleUser = await db.getUserByEmailGoogle(emailGoogle);
-      if (existingGoogleUser) {
-        return res.status(409).send({ message: 'Email Google già in uso.' });
-      }
-    }
-
-    const newUserId = await db.createUser({
-      Username, emailSpotify, emailTwitch, emailGoogle, Position, Password, DateBorn
+    const userId = await db.createUser({
+      Username,
+      Email,
+      emailSpotify,
+      emailTwitch,
+      emailGoogle,
+      Position,
+      Password,
+      DateBorn
     });
-    res.send({ message: `Utente aggiunto con ID: ${newUserId}` });
+
+    res.json({ message: userId });
   } catch (err) {
-    console.error('Errore durante la registrazione:', err.message);
-    res.status(500).send({ message: err.message });
+    console.error("Error creating user:", err);
+    res.status(500).json({ message: "Errore del server durante la creazione dell'utente." });
   }
 });
 

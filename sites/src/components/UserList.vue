@@ -99,26 +99,8 @@
               <strong>{{ utente.Username }}</strong>
             </router-link>
             <span v-if="utente.isAdmin" class="admin-badge">Admin</span>
-            <div class="user-actions">
-              <button
-                v-if="puòModificare(utente)"
-                class="action-button"
-                @click="modificaUtente(utente)"
-              >
-                Modifica
-              </button>
-              <button
-                v-if="puòCancellare(utente)"
-                class="action-button delete-button"
-                @click="cancellaUtente(utente.id)"
-              >
-                Cancella
-              </button>
-            </div>
           </div>
           <div class="user-card-content">
-            <p><strong>Email Spotify:</strong> {{ utente.emailSpotify }}</p>
-            <p><strong>Email Google:</strong> {{ utente.emailGoogle }}</p>
             <p><strong>Posizione:</strong> {{ utente.Position }}</p>
             <p><strong>Data di Nascita:</strong> {{ utente.DateBorn }}</p>
             <p v-if="utente.isAdmin"><strong>Ruolo:</strong> Amministratore</p>
@@ -156,8 +138,6 @@
               <th @click="sortBy('Username')" class="sortable-header">
                 Username <span v-if="sortKey === 'Username'">{{ sortAsc ? '▲' : '▼' }}</span>
               </th>
-              <th>Email Spotify</th>
-              <th>Email Google</th>
               <th @click="sortBy('Position')" class="sortable-header">
                 Posizione <span v-if="sortKey === 'Position'">{{ sortAsc ? '▲' : '▼' }}</span>
               </th>
@@ -166,7 +146,6 @@
               </th>
               <th>Status</th>
               <th>Listening</th>
-              <th>Azioni</th>
             </tr>
           </thead>
           <tbody>
@@ -177,8 +156,6 @@
                 </router-link>
                 <span v-if="utente.isAdmin" class="admin-badge">Admin</span>
               </td>
-              <td>{{ utente.emailSpotify }}</td>
-              <td>{{ utente.emailGoogle }}</td>
               <td>{{ utente.Position }}</td>
               <td>{{ utente.DateBorn }}</td>
               <td>
@@ -203,22 +180,6 @@
                     {{ getUserStatus(utente.id).listening.artists }}
                   </span>
                 </div>
-              </td>
-              <td>
-                <button
-                  v-if="puòModificare(utente)"
-                  class="action-button"
-                  @click="modificaUtente(utente)"
-                >
-                  Modifica
-                </button>
-                <button
-                  v-if="puòCancellare(utente)"
-                  class="action-button delete-button"
-                  @click="cancellaUtente(utente.id)"
-                >
-                  Cancella
-                </button>
               </td>
             </tr>
           </tbody>
@@ -249,71 +210,6 @@
               <p><strong>Album:</strong> {{ track.album.name }}</p>
             </div>
           </div>
-        </div>
-      </div>
-
-      <!-- Modal Edit User -->
-      <div v-if="mostraModaleModifica" class="modal">
-        <div class="modal-content">
-          <span class="close" @click="chiudiModale">&times;</span>
-          <h3 class="modal-title">Modifica Utente</h3>
-          <form @submit.prevent="aggiornaUtente">
-            <div class="modal-grid">
-              <div class="input-group">
-                <label for="editUsername">Username:</label>
-                <input
-                  id="editUsername"
-                  v-model="utenteModificabile.Username"
-                  required
-                  class="cute-input"
-                />
-              </div>
-              <div class="input-group">
-                <label for="editEmailSpotify">Email Spotify:</label>
-                <input
-                  id="editEmailSpotify"
-                  v-model="utenteModificabile.emailSpotify"
-                  class="cute-input"
-                />
-              </div>
-              <div class="input-group">
-                <label for="editEmailGoogle">Email Google:</label>
-                <input
-                  id="editEmailGoogle"
-                  v-model="utenteModificabile.emailGoogle"
-                  class="cute-input"
-                />
-              </div>
-              <div class="input-group">
-                <label for="editPosition">Posizione:</label>
-                <input
-                  id="editPosition"
-                  v-model="utenteModificabile.Position"
-                  class="cute-input"
-                />
-              </div>
-              <div class="input-group">
-                <label for="editPassword">Password:</label>
-                <input
-                  id="editPassword"
-                  type="password"
-                  v-model="utenteModificabile.Password"
-                  required
-                  class="cute-input"
-                />
-              </div>
-              <div class="input-group">
-                <label for="editDateBorn">Data di Nascita:</label>
-                <input
-                  id="editDateBorn"
-                  type="date"
-                  v-model="utenteModificabile.DateBorn"
-                  class="cute-input"
-                />
-              </div>
-            </div>
-            <button type="submit" class="modal-button">Salva Modifiche</button>
-          </form>
         </div>
       </div>
     </div>

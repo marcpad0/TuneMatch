@@ -45,6 +45,7 @@ db.serialize(() => {
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       Username TEXT UNIQUE,
+      Email TEXT,
       emailSpotify TEXT,
       emailTwitch TEXT, 
       emailGoogle TEXT,
@@ -101,11 +102,11 @@ const dbOperations = {
     });
   },
 
-  createUser: ({ Username, emailSpotify = '', emailTwitch = '', emailGoogle = '', Position = '', Password, DateBorn = '' }) => { // Aggiunto emailGoogle
+  createUser: ({ Username, Email = '', emailSpotify = '', emailTwitch = '', emailGoogle = '', Position = '', Password, DateBorn = '' }) => {
     return new Promise((resolve, reject) => {
       db.run(
-        'INSERT INTO users (Username, emailSpotify, emailTwitch, emailGoogle, isAdmin, Position, Password, DateBorn) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [Username, emailSpotify, emailTwitch, emailGoogle, 0, Position, Password, DateBorn],
+        'INSERT INTO users (Username, Email, emailSpotify, emailTwitch, emailGoogle, isAdmin, Position, Password, DateBorn) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [Username, Email, emailSpotify, emailTwitch, emailGoogle, 0, Position, Password, DateBorn],
         function (err) {
           if (err) return reject(err);
           resolve(this.lastID);
@@ -113,12 +114,12 @@ const dbOperations = {
       );
     });
   },
-
-  updateUser: (id, { Username, emailSpotify = '', emailTwitch = '', emailGoogle = '', Position = '', Password, DateBorn = '', isAdmin }) => { // Aggiunto emailGoogle
+  
+  updateUser: (id, { Username, Email = '', emailSpotify = '', emailTwitch = '', emailGoogle = '', Position = '', Password, DateBorn = '', isAdmin }) => {
     return new Promise((resolve, reject) => {
       db.run(
-        'UPDATE users SET Username = ?, emailSpotify = ?, emailTwitch = ?, emailGoogle = ?, Position = ?, Password = ?, DateBorn = ?, isAdmin = ? WHERE id = ?',
-        [Username, emailSpotify, emailTwitch, emailGoogle, Position, Password, DateBorn, isAdmin, id],
+        'UPDATE users SET Username = ?, Email = ?, emailSpotify = ?, emailTwitch = ?, emailGoogle = ?, Position = ?, Password = ?, DateBorn = ?, isAdmin = ? WHERE id = ?',
+        [Username, Email, emailSpotify, emailTwitch, emailGoogle, Position, Password, DateBorn, isAdmin, id],
         function (err) {
           if (err) return reject(err);
           resolve(this.changes);
@@ -132,6 +133,15 @@ const dbOperations = {
       db.run('DELETE FROM users WHERE id = ?', [id], function (err) {
         if (err) return reject(err);
         resolve(this.changes);
+      });
+    });
+  },
+
+  getUserByEmail: (Email) => {
+    return new Promise((resolve, reject) => {
+      db.get('SELECT * FROM users WHERE Email = ?', [Email], (err, user) => {
+        if (err) reject(err);
+        else resolve(user);
       });
     });
   },

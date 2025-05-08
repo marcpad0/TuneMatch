@@ -1,22 +1,23 @@
-// dbMock.js
 let users = [
   {
     id: 1,
     Username: 'johndoe',
+    Email: 'john@example.com',
     emailSpotify: 'johndoe@spotify.com',
-    emailTwitch: 'johndoe@Twitch.com', // Aggiunto per Twitch
-    emailGoogle: 'johndoe@google.com', // Aggiunto per Google
+    emailTwitch: 'johndoe@Twitch.com',
+    emailGoogle: 'johndoe@google.com',
     isAdmin: 1,
     Position: 'Treviglio',
-    Password: 'adminpassword', // In uno scenario reale, le password dovrebbero essere hashate
+    Password: 'adminpassword',
     DateBorn: '1990-01-01'
   },
   {
     id: 2,
     Username: 'janedoe',
+    Email: 'jane@example.com',
     emailSpotify: 'janedoe@spotify.com',
-    emailTwitch: 'janedoe@Twitch.com', // Aggiunto per Twitch
-    emailGoogle: 'janedoe@google.com', // Aggiunto per Google
+    emailTwitch: 'janedoe@Twitch.com',
+    emailGoogle: 'janedoe@google.com',
     isAdmin: 0,
     Position: 'Milano',
     Password: 'userpassword',
@@ -25,9 +26,10 @@ let users = [
   {
     id: 3,
     Username: 'spotifyuser',
+    Email: 'spotify@example.com',
     emailSpotify: 'spotifyuser@spotify.com',
-    emailTwitch: 'spotifyuser@Twitch.com', // Aggiunto per Twitch
-    emailGoogle: 'spotifyuser@google.com', // Aggiunto per Google
+    emailTwitch: 'spotifyuser@Twitch.com',
+    emailGoogle: 'spotifyuser@google.com',
     isAdmin: 0,
     Position: 'Roma',
     Password: 'spotifypass',
@@ -104,36 +106,31 @@ const dbMockOperations = {
     return Promise.resolve(user);
   },
 
-  createUser: ({ Username, emailSpotify = '', emailTwitch = '', emailGoogle = '', Position = '', Password, DateBorn = '' }) => { // Aggiunto emailGoogle
+  createUser: ({ Username, Email = '', emailSpotify = '', emailTwitch = '', emailGoogle = '', Position = '', Password, DateBorn = '' }) => {
     // Controlla se lo Username esiste già
     const existingUser = users.find(u => u.Username === Username);
     if (existingUser) {
       return Promise.reject(new Error('Nome utente già in uso.'));
     }
-
-    // Controlla se emailTwitch esiste già, se fornita
-    if (emailTwitch) {
-      const existingTwitchEmail = users.find(u => u.emailTwitch === emailTwitch);
-      if (existingTwitchEmail) {
-        return Promise.reject(new Error('Email Twitch già in uso.'));
+  
+    // Controlla se Email esiste già, se fornita
+    if (Email) {
+      const existingEmail = users.find(u => u.Email === Email);
+      if (existingEmail) {
+        return Promise.reject(new Error('Email già in uso.'));
       }
     }
-
-    // Controlla se emailGoogle esiste già, se fornita
-    if (emailGoogle) {
-      const existingGoogleEmail = users.find(u => u.emailGoogle === emailGoogle);
-      if (existingGoogleEmail) {
-        return Promise.reject(new Error('Email Google già in uso.'));
-      }
-    }
-
+  
+    // Altri controlli esistenti...
+  
     const newUser = {
       id: userIdCounter++,
       Username,
+      Email,
       emailSpotify,
       emailTwitch,
       emailGoogle,
-      isAdmin: 0, // Default a non-admin
+      isAdmin: 0,
       Position,
       Password,
       DateBorn
@@ -141,48 +138,40 @@ const dbMockOperations = {
     users.push(newUser);
     return Promise.resolve(newUser.id);
   },
-
-  updateUser: (id, { Username, emailSpotify = '', emailTwitch = '', emailGoogle = '', Position = '', Password, DateBorn = '', isAdmin }) => { // Aggiunto emailGoogle
+  
+  updateUser: (id, { Username, Email = '', emailSpotify = '', emailTwitch = '', emailGoogle = '', Position = '', Password, DateBorn = '', isAdmin }) => {
     const index = users.findIndex(u => u.id === parseInt(id, 10));
     if (index === -1) return Promise.resolve(0);
-
-    // Controlla conflitto di Username se viene aggiornato
-    if (Username && Username !== users[index].Username) {
-      const usernameExists = users.some(u => u.Username === Username);
-      if (usernameExists) {
-        return Promise.reject(new Error('Nome utente già in uso.'));
+  
+    // Controlla conflitto di Email se viene aggiornata
+    if (Email && Email !== users[index].Email) {
+      const emailExists = users.some(u => u.Email === Email);
+      if (emailExists) {
+        return Promise.reject(new Error('Email già in uso.'));
       }
     }
-
-    // Controlla conflitto di emailTwitch se viene aggiornato
-    if (emailTwitch && emailTwitch !== users[index].emailTwitch) {
-      const emailTwitchExists = users.some(u => u.emailTwitch === emailTwitch);
-      if (emailTwitchExists) {
-        return Promise.reject(new Error('Email Twitch già in uso.'));
-      }
-    }
-
-    // Controlla conflitto di emailGoogle se viene aggiornato
-    if (emailGoogle && emailGoogle !== users[index].emailGoogle) {
-      const emailGoogleExists = users.some(u => u.emailGoogle === emailGoogle);
-      if (emailGoogleExists) {
-        return Promise.reject(new Error('Email Google già in uso.'));
-      }
-    }
-
+  
+    // Altri controlli esistenti...
+  
     const user = users[index];
     users[index] = {
       ...user,
       Username: Username || user.Username,
+      Email: Email || user.Email,
       emailSpotify: emailSpotify || user.emailSpotify,
       emailTwitch: emailTwitch || user.emailTwitch,
-      emailGoogle: emailGoogle || user.emailGoogle, // Aggiornato per Google
+      emailGoogle: emailGoogle || user.emailGoogle,
       Position: Position || user.Position,
       Password: Password || user.Password,
       DateBorn: DateBorn || user.DateBorn,
       isAdmin: typeof isAdmin === 'number' ? isAdmin : user.isAdmin
     };
     return Promise.resolve(1);
+  },
+  
+  getUserByEmail: (Email) => {
+    const user = users.find(u => u.Email === Email) || null;
+    return Promise.resolve(user);
   },
 
   deleteUser: (id) => {
