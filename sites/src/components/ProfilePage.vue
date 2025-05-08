@@ -69,7 +69,12 @@
         <h2 class="section-title">Music Compatibility</h2>
         
         <div class="compatibility-content">
-          <p class="match-level">{{ getMatchLevel(compatibility.score) }}</p>
+          <div class="compatibility-score">
+            <div class="score-circle" :style="getScoreStyle(compatibility.score)">
+              {{ compatibility.score }}%
+            </div>
+            <p class="match-level">{{ compatibility.matchLevel }}</p>
+          </div>
           
           <div class="interests-section">
             <h3 class="interests-title">Common Interests</h3>
@@ -370,8 +375,6 @@ export default {
           withCredentials: true
         });
 
-        console.log(favoritesResponse)
-        
         this.favorites = favoritesResponse.data;
         
         try {
@@ -379,9 +382,9 @@ export default {
             withCredentials: true
           });
           
-          if (meResponse.data && meResponse.data.id !== parseInt(this.userId)) {
+          if (meResponse.data && meResponse.data.userId !== parseInt(this.userId)) {
             const compatibilityResponse = await axios.get(
-              `http://localhost:3000/users/compatibility/${meResponse.data.id}/${this.userId}`, 
+              `http://localhost:3000/users/compatibility/${meResponse.data.userId}/${this.userId}`, 
               { withCredentials: true }
             );
             this.compatibility = compatibilityResponse.data;
@@ -426,12 +429,17 @@ export default {
       this.openMusicTrack(track);
     },
     
-    getMatchLevel(score) {
-      if (score >= 90) return "Perfect Match!";
-      if (score >= 75) return "Great Match";
-      if (score >= 60) return "Good Match";
-      if (score >= 45) return "Fair Match";
-      return "Some Similarities";
+    getScoreStyle(score) {
+      let color;
+      if (score >= 80) color = '#4CAF50';
+      else if (score >= 60) color = '#2196F3';
+      else if (score >= 40) color = '#FF9800';
+      else color = '#F44336';
+      
+      return {
+        background: `conic-gradient(${color} ${score}%, #e0e0e0 0%)`,
+        color: score >= 60 ? 'white' : '#333'
+      };
     },
 
     goBack() {
@@ -466,7 +474,7 @@ export default {
 /* Base Styles */
 .profile-page {
   font-family: 'Poppins', sans-serif;
-  max-width: 900px;
+  max-width: 1200px; /* Increased from 900px for more space on PC screens */
   margin: 0 auto;
   padding: 0 20px;
   position: relative;
@@ -710,7 +718,7 @@ export default {
 .section-card {
   background-color: white;
   border-radius: 15px;
-  padding: 25px;
+  padding: 30px; /* Increased from 25px */
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
   margin-bottom: 30px;
 }
@@ -727,11 +735,43 @@ export default {
   text-align: center;
 }
 
-.match-level {
+.compatibility-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.score-circle {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 15px;
+  position: relative;
+}
+
+.score-circle::before {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  right: 5px;
+  bottom: 5px;
+  background: white;
+  border-radius: 50%;
+  z-index: -1;
+}
+
+.match-level {
+  font-size: 22px;
   font-weight: 600;
   color: #4466ee;
-  margin-bottom: 20px;
+  margin: 0 0 10px 0;
 }
 
 .interests-section {
@@ -810,8 +850,8 @@ export default {
 /* Music Grid */
 .music-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); /* Increased from 150px to 180px */
+  gap: 25px; /* Slightly increased from 20px */
 }
 
 .music-card {
@@ -893,7 +933,7 @@ export default {
 .genres-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 15px; /* Increased from 12px */
 }
 
 .genre-bubble {
@@ -927,7 +967,7 @@ export default {
   background: white;
   border-radius: 12px;
   width: 100%;
-  max-width: 450px; /* Ensure modal doesn't get too wide */
+  max-width: 500px; /* Increased from 450px */
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   overflow: hidden;
 }

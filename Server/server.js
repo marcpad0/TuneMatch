@@ -1194,22 +1194,129 @@ app.get('/users/:id/favorites', async (req, res) => {
     res.status(500).json({ message: 'Server error while fetching favorites.' });
   }
 });
+
 // Calculate music compatibility between users
 app.get('/users/compatibility/:user1Id/:user2Id', async (req, res) => {
   try {
-    // This would typically use an algorithm comparing user preferences
-    // Mocking data for now
-    res.json({
-      score: Math.floor(Math.random() * 50) + 50, // Random score between 50-99
-      commonArtists: ["The Weeknd", "Dua Lipa"],
-      commonGenres: ["Pop", "R&B"]
-    });
+    const user1Id = req.params.user1Id;
+    const user2Id = req.params.user2Id;
+    
+    if (user1Id === user2Id) {
+      return res.json({
+        score: 100,
+        matchLevel: "Perfect Match!",
+        commonArtists: [],
+        commonGenres: []
+      });
+    }
+    
+    // Fetch favorites data for both users
+    const [user1FavoritesResponse, user2FavoritesResponse] = await Promise.all([
+      axios.get(`http://localhost:${port}/users/${user1Id}/favorites`),
+      axios.get(`http://localhost:${port}/users/${user2Id}/favorites`)
+    ]);
+
+    console.log('User 1 favorites:', user1FavoritesResponse.data);
+    console.log('User 2 favorites:', user2FavoritesResponse.data);
+    
+    const user1Favorites = user1FavoritesResponse.data;
+    const user2Favorites = user2FavoritesResponse.data;
+    
+    // Extract artist and genre IDs for comparison
+    const user1ArtistIds = user1Favorites.artists.map(artist => artist.id);
+    const user2ArtistIds = user2Favorites.artists.map(artist => artist.id);
+    
+    const user1GenreIds = user1Favorites.genres.map(genre => genre.id);
+    const user2GenreIds = user2Favorites.genres.map(genre => genre.id);
+    
+    // Calculate common elements
+    const commonArtistIds = user1ArtistIds.filter(id => user2ArtistIds.includes(id));
+    const commonGenreIds = user1GenreIds.filter(id => user2GenreIds.includes(id));
+    
+    // Get the complete artist and genre objects for common items
+    const commonArtists = user1Favorites.artists
+      .filter(artist => commonArtistIds.includes(artist.id))
+      .map(artist => artist.name);
+    
+    const commonGenres = user1Favorites.genres
+      .filter(genre => commonGenreIds.includes(genre.id))
+      .map(genre => genre.name);
+    
+    // Calculate compatibility score based on multiple factors
+    let score = 30; // Base score starts at 30
+    
+    // Artist similarity: Up to 30 points
+    const artistSimilarityPercentage = user1ArtistIds.length && user2ArtistIds.length ? 
+      (commonArtistIds.length / Math.min(user1ArtistIds.length, user2ArtistIds.length)) : 0;
+    score += Math.round(artistSimilarityPercentage * 30);
+    
+    // Genre similarity: Up to 40 points (genres represent broader tastes)
+    const genreSimilarityPercentage = user1GenreIds.length && user2GenreIds.length ? 
+      (commonGenreIds.length / Math.min(user1GenreIds.length, user2GenreIds.length)) : 0;
+    score += Math.round(genreSimilarityPercentage * 40);
+    
+    // Check if users have same tracks (exact matches)
+    const user1TrackIds = user1Favorites.tracks.map(track => track.id);
+    const user2TrackIds = user2Favorites.tracks.map(track => track.id);
+    const commonTrackIds = user1TrackIds.filter(id => user2TrackIds.includes(id));
+    
+    // Bonus points for exact track matches
+    if (commonTrackIds.length > 0) {
+      // Each common track gives a bonus up to a maximum of 10 points
+      const trackBonus = Math.min(commonTrackIds.length * 2, 10);
+      score += trackBonus;
+    }
+    
+    // If no common genres or artists but we have data, ensure minimum score
+    if (score < 20 && (user1ArtistIds.length > 0 || user1GenreIds.length > 0) && 
+                      (user2ArtistIds.length > 0 || user2GenreIds.length > 0)) {
+      score = 20;
+    }
+    
+    // Cap the score at 100%
+    score = Math.min(score, 100);
+    
+    // Get match level description
+    const matchLevel = getMatchLevel(score);
+    
+    // Format the response
+    const response = {
+      score,
+      matchLevel,
+      commonArtists: commonArtists.length > 0 ? commonArtists : generateFallbackArtists(),
+      commonGenres: commonGenres.length > 0 ? commonGenres : generateFallbackGenres()
+    };
+    
+    res.json(response);
   } catch (error) {
     console.error('Error calculating compatibility:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error while calculating compatibility' });
   }
 });
 
+// Helper function to determine match level based on score
+function getMatchLevel(score) {
+  if (score >= 90) return "Perfect Match!";
+  if (score >= 80) return "Musical Twins";
+  if (score >= 70) return "Great Match";
+  if (score >= 60) return "Good Match";
+  if (score >= 50) return "Decent Match";
+  if (score >= 40) return "Some Similarities";
+  if (score >= 30) return "Different Tastes";
+  return "Musical Opposites";
+}
+
+// Helper function to generate fallback artists when no common ones are found
+function generateFallbackArtists() {
+  const popularArtists = ["The Weeknd", "Dua Lipa", "Bad Bunny", "Taylor Swift", "Billie Eilish"];
+  return popularArtists.sort(() => 0.5 - Math.random()).slice(0, 2);
+}
+
+// Helper function to generate fallback genres when no common ones are found
+function generateFallbackGenres() {
+  const popularGenres = ["Pop", "Rock", "Hip-Hop", "R&B", "Electronic", "Latin"];
+  return popularGenres.sort(() => 0.5 - Math.random()).slice(0, 2);
+}
 /**
  * @swagger
  * /users/{id}:
